@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # AI Medical Assistant
 
 ## Project Overview
@@ -591,3 +592,6 @@ See the commit history for detailed version information.
 **Status**: Active Development
 #   a i - m e d i c a l - a g e n t  
  
+=======
+# ai-medical-agent
+>>>>>>> 3943b610d024aafc2901b7e84b5add713381f2f9
