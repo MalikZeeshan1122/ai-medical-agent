@@ -1,0 +1,25 @@
+project_id = "cjrtuvxofesbixhrihkz"
+
+[functions.advanced-scrape]
+verify_jwt = false
+
+[functions.chat]
+verify_jwt = false
+
+[functions.scrape-hospital]
+verify_jwt = false
+
+[functions.hospital-assistant]
+verify_jwt = false
+
+[functions.scheduled-scrape]
+verify_jwt = false
+
+[functions.private-ai-chat]
+verify_jwt = false
+
+[functions.send-appointment-reminder]
+verify_jwt = false
+
+[functions.twilio-webhook]
+verify_jwt = false
