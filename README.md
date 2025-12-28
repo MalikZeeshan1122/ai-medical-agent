@@ -60,23 +60,23 @@ This project uses Supabase as a scalable, secure, and fully managed backend plat
 ### Technical Features
 - Real-time AI chat with streaming responses
 - User authentication and authorization
+- Responsive design (mobile, tablet, desktop)
 - Dark/light mode support
 - Secure data storage with Row Level Security (RLS)
 - RESTful API integration
-
-
 - Edge functions for AI processing
 
+## Technology Stack
 
-
-
+### Frontend
 - **React 18.3** - UI framework
-
+- **TypeScript** - Type-safe development
+- **Vite** - Build tool and dev server
+- **Tailwind CSS** - Utility-first styling
 - **Shadcn/ui** - Component library
 - **React Router** - Client-side routing
 - **React Query** - Server state management
 - **Lucide React** - Icon library
-
 - **Sonner** - Toast notifications
 
 - **Supabase** - Backend as a Service
@@ -89,16 +89,16 @@ This project uses Supabase as a scalable, secure, and fully managed backend plat
 
 ### AI Integration
 - **Supported Models**:
-
-
   - google/gemini-2.5-flash (default) - Balanced performance and cost
-
   - google/gemini-2.5-pro - Advanced reasoning for complex medical queries
-
-
+  - google/gemini-3-pro-preview - Next-generation model
+  - google/gemini-2.5-flash-lite - Fastest for simple queries
+  - openai/gpt-5 - OpenAI's flagship model
   - openai/gpt-5-mini - Cost-effective OpenAI
-
-
+  - openai/gpt-5-nano - High-speed OpenAI
+- **Features**:
+  - Streaming responses (token-by-token rendering)
+  - Context-aware conversations
   - Medical knowledge base
   - Structured data extraction via tool calling
   - Rate limiting and credit management
@@ -106,13 +106,11 @@ This project uses Supabase as a scalable, secure, and fully managed backend plat
 ### Hospital Scraping System
 - **Three-Tier Scraping Approach**:
   1. **Advanced Native Scraper** (Built-in, Free):
-
      - No API key required
      - Recursive crawling (max 100 pages, depth 3)
      - Intelligent content extraction with improved selectors
      - Metadata extraction (emails, phones, JSON-LD structured data)
      - Page type classification (emergency, services, doctors, contact, etc.)
-
      - Contact information detection from page content
   2. **Firecrawl API** (Recommended):
      - Superior scraping accuracy
@@ -154,13 +152,12 @@ git clone [repository-url]
 cd ai-medical-assistant
 ```
 
+### 2. Install Dependencies
 ```bash
 npm install
 # or
-
-
 bun install
-
+```
 
 ### 3. Environment Configuration
 - Copy `.env.example` to `.env`
@@ -169,8 +166,11 @@ bun install
 ### 4. Database Setup (Supabase)
 - `profiles` - User profiles
 - `appointments` - Medical appointments
+- `medications` - Medication tracking
 - `allergies` - Allergy records
+- `chronic_conditions` - Long-term health conditions
 - `family_history` - Family medical history
+- `doctors` - Healthcare provider directory
 - `hospitals` - Hospital information
 - `hospital_pages` - Scraped hospital data
 - `doctor_reviews` - Provider ratings and reviews
@@ -180,18 +180,31 @@ bun install
 npm run dev
 # or
 bun run dev
+```
+
+The application will be available at `http://localhost:5173`
 
 ### Production Build & Deployment
+
+When you're ready to prepare the app for production you should compile (build) it. Compiling produces an optimized output (the `dist/` folder) that's smaller, faster, and ready to deploy to a static host or CDN.
+
+- Install dependencies (if not already installed):
 
 ```bash
 npm install
 # or
 bun install
+```
 
+- Build the production bundle using Vite:
 
+```bash
 npm run build
+# or
 bun run build
+```
 
+- Preview the production build locally (serves the contents of `dist/`):
 
 ```bash
 npm run preview
@@ -218,7 +231,6 @@ When to use `dev` vs `build`/`preview`:
 Notes for TypeScript projects:
 
 - The Vite build will include compiled TypeScript output; however, if you want a separate type-check step use `tsc --noEmit` or a CI job to enforce type safety before publishing.
-
 
 ## Development Workflow
 
@@ -576,8 +588,52 @@ See the commit history for detailed version information.
 
 ---
 
-**Last Updated**: November 2025
+**Last Updated**: December 2025
 **Status**: Active Development
+
+## Twilio API Integration
+
+Twilio enables SMS and voice features for medical notifications and authentication. Planned and current uses:
+
+- **SMS Appointment Reminders:** Automatically send reminders to patients for upcoming appointments.
+- **Voice Call Notifications:** Trigger automated voice calls for emergency alerts or critical updates.
+- **Two-Factor Authentication (2FA):** Secure user login with SMS-based verification codes.
+
+**Environment Variables Required:**
+- `TWILIO_ACCOUNT_SID` — Your Twilio account SID
+- `TWILIO_AUTH_TOKEN` — Your Twilio authentication token
+- `TWILIO_PHONE_NUMBER` — The Twilio phone number used to send messages/calls
+
+**Basic Setup:**
+1. Sign up at [Twilio](https://www.twilio.com/)
+2. Get your Account SID, Auth Token, and a Twilio phone number
+3. Add the variables above to your `.env` file
+
+**Example Usage (Node.js):**
+```js
+const twilio = require('twilio');
+const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+
+// Send SMS
+client.messages.create({
+  body: 'Your appointment is scheduled for tomorrow at 10am.',
+  from: process.env.TWILIO_PHONE_NUMBER,
+  to: '+1234567890'
+});
+
+// Make a voice call
+client.calls.create({
+  url: 'http://demo.twilio.com/docs/voice.xml',
+  from: process.env.TWILIO_PHONE_NUMBER,
+  to: '+1234567890'
+});
+```
+
+**Documentation:**
+- [Twilio SMS API](https://www.twilio.com/docs/sms/send-messages)
+- [Twilio Voice API](https://www.twilio.com/docs/voice/make-calls)
+
+For advanced integration, see the official Twilio docs and future releases of this project.
 
 ## Appointment Reminders & Notifications
 
