@@ -6,7 +6,6 @@ This guide walks you through setting up the AI Medical Assistant from scratch, i
 
 1. [Prerequisites](#prerequisites)
 2. [Initial Setup](#initial-setup)
-3. [Lovable Cloud Configuration](#lovable-cloud-configuration)
 4. [AI Integration Setup](#ai-integration-setup)
 5. [Hospital Scraping Configuration](#hospital-scraping-configuration)
 6. [Authentication Setup](#authentication-setup)
@@ -24,7 +23,6 @@ This guide walks you through setting up the AI Medical Assistant from scratch, i
 - **Code Editor**: VS Code recommended ([Download](https://code.visualstudio.com))
 
 ### Required Accounts
-- **Lovable Account**: Sign up at [lovable.dev](https://lovable.dev)
 - **GitHub Account** (optional): For code hosting and collaboration
 
 ### Optional Services
@@ -67,54 +65,52 @@ npm run dev
 
 Open http://localhost:5173 in your browser. You should see the application running (with connection errors, which we'll fix next).
 
-## Lovable Cloud Configuration
 
-### Understanding Lovable Cloud
 
-Lovable Cloud provides:
-- PostgreSQL database
-- User authentication
-- File storage
-- Serverless functions (Edge Functions)
-- AI gateway access
-
-### Automatic Configuration
-
-When you open the project in Lovable:
-
-1. **Navigate to your project** in Lovable
-2. **Lovable Cloud is already enabled** (indicated by Cloud tab)
-3. **Environment variables are auto-configured**:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_PUBLISHABLE_KEY`
-   - `VITE_SUPABASE_PROJECT_ID`
-
-### Verify Cloud Configuration
-
-1. Click the **Cloud** tab in Lovable
-2. Navigate to **Database** → You should see tables like:
-   - profiles
-   - appointments
-   - medications
-   - hospitals
-   - doctors
-3. Navigate to **Storage** → You should see buckets:
-   - patient-avatars
-   - doctor-photos
+ Supabase provides:
+ - PostgreSQL database
+ - User authentication
+ - File storage
+ - Serverless functions (Edge Functions)
+ - AI gateway access
+ 
+ ### Automatic Configuration
+ 
+ When you open the project in your cloud provider:
+ 
+ 1. **Navigate to your project**
+ 2. **Cloud is already enabled** (indicated by Cloud tab)
+ 3. **Environment variables are auto-configured**:
+    - `VITE_SUPABASE_URL`
+    - `VITE_SUPABASE_PUBLISHABLE_KEY`
+    - `VITE_SUPABASE_PROJECT_ID`
+ 
+ ### Verify Cloud Configuration
+ 
+ 1. Click the **Cloud** tab
+ 2. Navigate to **Database** → You should see tables like:
+    - profiles
+    - appointments
+    - medications
+    - hospitals
+    - doctors
+ 3. Navigate to **Storage** → You should see buckets:
+    - patient-avatars
+    - doctor-photos
 
 If tables don't exist, the migrations will run automatically on first deployment.
 
 ## AI Integration Setup
 
-### Lovable AI Gateway
-
-The AI integration uses Lovable AI Gateway, which is **pre-configured** with Lovable Cloud.
-
-#### Verify AI Integration
-
-1. In Lovable, go to **Settings** → **Integrations**
-2. Confirm **Lovable AI** is enabled
-3. The `LOVABLE_API_KEY` is automatically set in Edge Function secrets
+ ### AI Gateway
+ 
+ The AI integration uses an AI Gateway, which is pre-configured with your cloud provider.
+ 
+ #### Verify AI Integration
+ 
+ 1. Go to **Settings** → **Integrations**
+ 2. Confirm **AI** is enabled
+ 3. The `AI_API_KEY` is automatically set in Edge Function secrets
 
 #### Available AI Models
 
@@ -132,10 +128,10 @@ The AI integration uses Lovable AI Gateway, which is **pre-configured** with Lov
 3. Send a test message: "What is diabetes?"
 4. You should receive a streaming AI response
 
-If AI doesn't work:
-- Check Edge Function logs in Cloud → Functions → chat
-- Verify `LOVABLE_API_KEY` exists in Secrets
-- Check Lovable AI credits in Settings → Plans & Credits
+ If AI doesn't work:
+ - Check Edge Function logs in Cloud → Functions → chat
+ - Verify `AI_API_KEY` exists in Secrets
+ - Check AI credits in Settings → Plans & Credits
 
 ## Hospital Scraping Configuration
 
@@ -199,12 +195,11 @@ Authentication is pre-configured with:
 
 To modify authentication settings:
 
-1. **In Lovable**:
-   - Go to Cloud → Authentication → Settings
-   - Configure:
-     - Email confirmation (on/off)
-     - Password requirements
-     - Social providers (Google, etc.)
+ 1. Go to Cloud → Authentication → Settings
+      - Configure:
+         - Email confirmation (on/off)
+         - Password requirements
+         - Social providers (Google, etc.)
 
 2. **Disable Auto-Confirm** (for production):
    ```sql
@@ -273,9 +268,9 @@ USING (
 
 ### Automatic Deployment
 
-Edge Functions deploy automatically when you:
-1. Save changes in Lovable
-2. Push to GitHub (if connected)
+ Edge Functions deploy automatically when you:
+ 1. Save changes in your cloud provider
+ 2. Push to GitHub (if connected)
 
 Functions in this project:
 - `chat` - AI chat completions
@@ -287,12 +282,12 @@ Functions in this project:
 
 ### Manual Deployment
 
-If functions aren't deployed:
-
-1. In Lovable, go to Cloud → Functions
-2. Click on each function
-3. Click **Deploy** button
-4. Wait for deployment to complete
+ If functions aren't deployed:
+ 
+ 1. Go to Cloud → Functions
+ 2. Click on each function
+ 3. Click **Deploy** button
+ 4. Wait for deployment to complete
 
 ### Verify Functions
 
@@ -369,35 +364,35 @@ npm run test:visual
 
 ## Deployment
 
-### Deploy to Lovable
-
-1. **Save all changes** in Lovable editor
-2. Click **Publish** button (top right)
-3. **Backend deploys immediately** (edge functions, migrations)
-4. **Frontend requires update**:
-   - Click **Update** in publish dialog
-   - Wait for build to complete
-   - Verify deployment
+ ### Deploy to Cloud
+ 
+ 1. **Save all changes** in your cloud editor
+ 2. Click **Publish** button (top right)
+ 3. **Backend deploys immediately** (edge functions, migrations)
+ 4. **Frontend requires update**:
+    - Click **Update** in publish dialog
+    - Wait for build to complete
+    - Verify deployment
 
 ### Custom Domain
 
 To use a custom domain:
 
-1. Go to Settings → Domains in Lovable
+ 1. Go to Settings → Domains in your cloud provider
 2. Click **Add Domain**
 3. Enter your domain (e.g., medicalassistant.com)
 4. Follow DNS configuration instructions:
    ```
    Type: CNAME
    Name: @ (or subdomain)
-   Value: [provided by Lovable]
+   Value: [provided by your cloud provider]
    ```
 5. Wait for DNS propagation (up to 48 hours)
 6. SSL certificate auto-provisions
 
 ### Self-Hosting
 
-For self-hosting outside Lovable:
+ For self-hosting outside your cloud provider:
 
 1. **Export project** from GitHub
 2. **Set up Supabase project**:
@@ -411,18 +406,16 @@ For self-hosting outside Lovable:
    - Use Supabase CLI
    - Deploy: `supabase functions deploy`
 
-See [Self-Hosting Guide](https://docs.lovable.dev/tips-tricks/self-hosting) for details.
-
 ## Troubleshooting
 
 ### Common Issues
 
 #### Issue: "Failed to fetch"
-**Cause**: Lovable Cloud not configured or offline
-**Solution**:
-1. Verify Cloud is enabled in Lovable
-2. Check Cloud status in Settings
-3. Restart development server
+ **Cause**: Cloud not configured or offline
+ **Solution**:
+ 1. Verify Cloud is enabled
+ 2. Check Cloud status in Settings
+ 3. Restart development server
 
 #### Issue: "Invalid JWT"
 **Cause**: Authentication token expired or malformed
@@ -439,11 +432,11 @@ See [Self-Hosting Guide](https://docs.lovable.dev/tips-tricks/self-hosting) for 
 3. Verify user_id matches auth.uid()
 
 #### Issue: "AI responses not streaming"
-**Cause**: Edge function error or LOVABLE_API_KEY missing
-**Solution**:
-1. Check function logs in Cloud → Functions → chat
-2. Verify LOVABLE_API_KEY in Secrets
-3. Test function directly with curl
+ **Cause**: Edge function error or AI_API_KEY missing
+ **Solution**:
+ 1. Check function logs in Cloud → Functions → chat
+ 2. Verify AI_API_KEY in Secrets
+ 3. Test function directly with curl
 
 #### Issue: "Scraping fails"
 **Cause**: Invalid URL or API key
@@ -482,10 +475,10 @@ sessionStorage.clear()
 
 ### Get Help
 
-- **Documentation**: [docs.lovable.dev](https://docs.lovable.dev)
-- **Discord**: [Lovable Community](https://discord.com/channels/1119885301872070706/1280461670979993613)
-- **GitHub Issues**: Open an issue in this repository
-- **Lovable Support**: support@lovable.dev
+ - **Documentation**: [docs.example.dev](https://docs.example.dev)
+ - **Discord**: [Community](https://discord.com/channels/1119885301872070706/1280461670979993613)
+ - **GitHub Issues**: Open an issue in this repository
+ - **Support**: support@example.dev
 
 ## Next Steps
 
