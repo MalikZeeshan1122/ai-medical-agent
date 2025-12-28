@@ -1,4 +1,9 @@
+
 # AI Medical Assistant
+
+## Professional Overview
+
+AI Medical Assistant is a modern, full-stack web application designed to deliver intelligent, secure, and user-friendly healthcare solutions. Leveraging advanced AI models and a robust Supabase backend, it enables real-time health consultations, comprehensive medical record management, and seamless integration with healthcare resources.
 
 ## Project Overview
 
@@ -20,10 +25,17 @@ This comprehensive platform combines cutting-edge AI technology with medical inf
 - [DESIGN_DOCUMENT.md](DESIGN_DOCUMENT.md) - Full project design document
 - [TESTING_GUIDE.md](TESTING_GUIDE.md) - Testing strategy and implementation
 
-## Features
+## Backend Architecture: Supabase
+This project uses Supabase as a scalable, secure, and fully managed backend platform, offering:
+- **PostgreSQL Database**: Reliable, scalable, and secure data storage
+- **Authentication & Authorization**: Secure user management with Row Level Security (RLS)
+- **Edge Functions**: Serverless logic for real-time AI and data processing
+- **Real-Time Subscriptions**: Live updates for user data and chat
+- **Storage**: Secure file and avatar uploads
+
+## Key Features
 
 ### Core Functionality
-- **AI Health Chat**: Natural language conversations about health concerns with streaming responses using Lovable AI Gateway
 - **Symptom Tracking**: Log and monitor symptoms over time with severity indicators and temperature tracking
 - **Appointment Management**: Schedule and track medical appointments with recurring appointments and email reminders
 - **Medical History**: Comprehensive health profile including:
@@ -55,7 +67,7 @@ This comprehensive platform combines cutting-edge AI technology with medical inf
 - RESTful API integration
 - Edge functions for AI processing
 
-## Tech Stack
+## Technology Stack
 
 ### Frontend
 - **React 18.3** - UI framework
@@ -68,17 +80,15 @@ This comprehensive platform combines cutting-edge AI technology with medical inf
 - **Lucide React** - Icon library
 - **Sonner** - Toast notifications
 
-### Backend (Lovable Cloud)
 - **Supabase** - Backend as a Service
   - PostgreSQL database
-  - Authentication
-  - Row Level Security (RLS)
+  - Authentication & RLS
   - Edge Functions
   - Real-time subscriptions
+  - Storage
 - **Deno** - Edge function runtime
 
 ### AI Integration
-- **Lovable AI Gateway** - Pre-configured AI access (no API key required)
 - **Supported Models**:
   - google/gemini-2.5-flash (default) - Balanced performance and cost
   - google/gemini-2.5-pro - Advanced reasoning for complex medical queries
@@ -117,24 +127,22 @@ This comprehensive platform combines cutting-edge AI technology with medical inf
 - **Visual Indicators**: Green "Scraped", Amber "Not Scraped", Blue "Auto" badges
 - **Analytics**: Track scraping statistics, success rates, and methods used
 
-## Requirements
+## System Requirements
 
-### System Requirements
+### Prerequisites
 - Node.js 18+ or Bun runtime
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 - Internet connection
 
 ### Environment Variables
-The following environment variables are automatically configured via Lovable Cloud:
 ```
 VITE_SUPABASE_URL=your-supabase-url
 VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
 VITE_SUPABASE_PROJECT_ID=your-project-id
 ```
 
-### API Keys (Optional)
+### Optional API Keys
 For enhanced AI features, you can add:
-- OpenAI API Key (optional, Lovable AI is default)
 - Google AI API Key (optional)
 
 ## Installation & Setup
@@ -153,12 +161,10 @@ bun install
 ```
 
 ### 3. Environment Configuration
-The `.env` file is automatically configured when using Lovable Cloud. If self-hosting:
 - Copy `.env.example` to `.env`
 - Fill in your Supabase credentials
 
-### 4. Database Setup
-Database migrations are automatically applied via Lovable Cloud. The schema includes:
+### 4. Database Setup (Supabase)
 - `profiles` - User profiles
 - `appointments` - Medical appointments
 - `medications` - Medication tracking
@@ -179,7 +185,7 @@ bun run dev
 
 The application will be available at `http://localhost:5173`
 
-### Compilation & Build (Production)
+### Production Build & Deployment
 
 When you're ready to prepare the app for production you should compile (build) it. Compiling produces an optimized output (the `dist/` folder) that's smaller, faster, and ready to deploy to a static host or CDN.
 
@@ -228,7 +234,7 @@ Notes for TypeScript projects:
 - The Vite build will include compiled TypeScript output; however, if you want a separate type-check step use `tsc --noEmit` or a CI job to enforce type safety before publishing.
 
 
-## Development
+## Development Workflow
 
 ### Project Structure
 ```
@@ -261,9 +267,8 @@ Located in `supabase/functions/`:
 - `hospital-assistant` - Hospital information queries
 - `scrape-hospital` - Hospital data scraping
 
-Edge functions are automatically deployed via Lovable Cloud.
 
-## Authentication
+## Authentication & Security
 
 The app uses Supabase Auth with email/password authentication:
 - Email auto-confirmation enabled for development
@@ -271,7 +276,7 @@ The app uses Supabase Auth with email/password authentication:
 - Protected routes require authentication
 - Session management with automatic refresh
 
-## Database Security
+## Database Security & Privacy
 
 ### Row Level Security (RLS)
 All tables have RLS policies ensuring:
@@ -286,9 +291,9 @@ All tables have RLS policies ensuring:
 - Secure API communications (HTTPS)
 - No sensitive data in client-side storage
 
-## Testing
+## Testing & Quality Assurance
 
-### Test Setup
+### Unit & Component Testing
 The project uses **Vitest** for unit testing and **React Testing Library** for component testing.
 
 **📚 For comprehensive testing documentation, see [TESTING_GUIDE.md](TESTING_GUIDE.md)**
@@ -367,7 +372,7 @@ describe('YourComponent', () => {
 });
 ```
 
-### Integration Tests
+### Integration Testing
 Integration tests use **MSW (Mock Service Worker)** to mock API endpoints:
 
 Location: `src/test/integration/`
@@ -393,7 +398,7 @@ describe('Chat Integration Tests', () => {
 });
 ```
 
-### End-to-End Tests
+### End-to-End (E2E) Testing
 E2E tests use **Playwright** to test complete user flows:
 
 Location: `e2e/`
@@ -488,7 +493,7 @@ Both workflows trigger on:
 
 ## Deployment
 
-### Via vercel and netlify
+### Deployment via Vercel & Netlify
 The app is automatically deployed via vercel and netlify hosting platform.
 
 ### Self-Hosting
@@ -508,7 +513,7 @@ The app is automatically deployed via vercel and netlify hosting platform.
 - AWS Amplify
 - Traditional web hosting
 
-## Testing
+## Manual & Automated Testing
 
 ### Manual Testing Checklist
 - [ ] User registration and login
@@ -534,7 +539,7 @@ Currently, the project uses manual testing. Future enhancements include:
 - Safari (latest 2 versions)
 - Mobile browsers (iOS Safari, Chrome Mobile)
 
-## Performance
+## Performance Optimization
 
 - Lazy loading for routes
 - Code splitting
@@ -562,7 +567,7 @@ Currently, the project uses manual testing. Future enhancements include:
 
 This project is part of an academic submission. All rights reserved.
 
-## Disclaimer
+## Medical Disclaimer
 
 ⚠️ **Medical Disclaimer**: This application is for educational and informational purposes only. It is not intended to be a substitute for professional medical advice, diagnosis, or treatment. Always seek the advice of your physician or other qualified health provider with any questions you may have regarding a medical condition.
 
@@ -570,7 +575,6 @@ This project is part of an academic submission. All rights reserved.
 
 For issues and questions:
 - Create an issue in the GitHub repository
-- Contact via Lovable platform
 - Review documentation in `DESIGN_DOCUMENT.md`
 
 ## Acknowledgments
@@ -579,7 +583,6 @@ For issues and questions:
 - UI components: [shadcn/ui](https://ui.shadcn.com)
 - Icons: [Lucide](https://lucide.dev)
 - Backend: [Supabase](https://supabase.com)
-- AI capabilities: Google Gemini, OpenAI, and the Lovable AI Gateway
 
 ## Version History
 
@@ -589,3 +592,4 @@ See the commit history for detailed version information.
 
 **Last Updated**: November 2025
 **Status**: Active Development
+
