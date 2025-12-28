@@ -15,7 +15,7 @@ This comprehensive platform combines cutting-edge AI technology with medical inf
 - **Doctor Directory**: Find and review healthcare providers
 - **Emergency Support**: Critical symptom detection with emergency guidance
 
-**Project URL**: https://aimedicalassistant.netlify.app/auth
+**Project URL**: https://ai-medical-assistant-three.vercel.app/
 
 **Documentation**:
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture and technical design
@@ -664,5 +664,6 @@ client.messages.create({
 4. Ensure your email is up to date for email notifications.
 
 **Note:** WhatsApp reminders require additional setup and approval from Twilio. See [Twilio WhatsApp API](https://www.twilio.com/docs/whatsapp) for details.
+
 
 
