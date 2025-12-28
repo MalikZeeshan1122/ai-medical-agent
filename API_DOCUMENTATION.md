@@ -705,19 +705,32 @@ const { data, error } = await supabase
 
 ## Rate Limits
 
-### Lovable AI Gateway
 
-- **Rate Limit**: Varies by workspace plan
-- **Free Plan**: 5 requests/day (up to 30/month)
-- **Paid Plans**: Higher limits, see Settings → Plans & Credits
+
+### AI Gateway & Supabase Integration
+
+This application uses both an **AI Gateway** and **Supabase** for its backend services:
+
+- **AI Gateway**: Handles all AI-powered features, including chat, medical reasoning, and data extraction. Rate limits depend on your workspace plan:
+  - **Free Plan**: 5 requests/day (up to 30/month)
+  - **Paid Plans**: Higher limits, see Settings → Plans & Credits
+- **Supabase**: Provides secure authentication, database storage, file uploads, and real-time updates for user and medical data. All user data and records are managed through Supabase with Row Level Security (RLS) enforced.
+
+#### Setup
+
+To set up the AI Gateway and Supabase integration:
+1. Follow the environment variable instructions in the [SETUP_GUIDE.md](SETUP_GUIDE.md) (e.g., `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, and any AI Gateway keys).
+2. Configure your Supabase project and enable Row Level Security (RLS) for all tables.
+3. (Optional) Add your AI Gateway API key for enhanced AI features.
+4. Deploy edge functions as described in the setup guide.
+
+For detailed step-by-step instructions, see [SETUP_GUIDE.md](SETUP_GUIDE.md).
 
 ### Error Codes
 
-- `429 Too Many Requests`: Rate limit exceeded
   - Wait before retrying
   - Upgrade plan for higher limits
   
-- `402 Payment Required`: Out of AI credits
   - Add credits in Settings → Workspace → Usage
 
 ### Best Practices
