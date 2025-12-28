@@ -1,4 +1,3 @@
-
 # AI Medical Assistant
 
 ## Professional Overview
@@ -61,23 +60,23 @@ This project uses Supabase as a scalable, secure, and fully managed backend plat
 ### Technical Features
 - Real-time AI chat with streaming responses
 - User authentication and authorization
-- Responsive design (mobile, tablet, desktop)
 - Dark/light mode support
 - Secure data storage with Row Level Security (RLS)
 - RESTful API integration
+
+
 - Edge functions for AI processing
 
-## Technology Stack
 
-### Frontend
+
+
 - **React 18.3** - UI framework
-- **TypeScript** - Type-safe development
-- **Vite** - Build tool and dev server
-- **Tailwind CSS** - Utility-first styling
+
 - **Shadcn/ui** - Component library
 - **React Router** - Client-side routing
 - **React Query** - Server state management
 - **Lucide React** - Icon library
+
 - **Sonner** - Toast notifications
 
 - **Supabase** - Backend as a Service
@@ -90,16 +89,16 @@ This project uses Supabase as a scalable, secure, and fully managed backend plat
 
 ### AI Integration
 - **Supported Models**:
+
+
   - google/gemini-2.5-flash (default) - Balanced performance and cost
+
   - google/gemini-2.5-pro - Advanced reasoning for complex medical queries
-  - google/gemini-3-pro-preview - Next-generation model
-  - google/gemini-2.5-flash-lite - Fastest for simple queries
-  - openai/gpt-5 - OpenAI's flagship model
+
+
   - openai/gpt-5-mini - Cost-effective OpenAI
-  - openai/gpt-5-nano - High-speed OpenAI
-- **Features**:
-  - Streaming responses (token-by-token rendering)
-  - Context-aware conversations
+
+
   - Medical knowledge base
   - Structured data extraction via tool calling
   - Rate limiting and credit management
@@ -107,11 +106,13 @@ This project uses Supabase as a scalable, secure, and fully managed backend plat
 ### Hospital Scraping System
 - **Three-Tier Scraping Approach**:
   1. **Advanced Native Scraper** (Built-in, Free):
+
      - No API key required
      - Recursive crawling (max 100 pages, depth 3)
      - Intelligent content extraction with improved selectors
      - Metadata extraction (emails, phones, JSON-LD structured data)
      - Page type classification (emergency, services, doctors, contact, etc.)
+
      - Contact information detection from page content
   2. **Firecrawl API** (Recommended):
      - Superior scraping accuracy
@@ -153,12 +154,13 @@ git clone [repository-url]
 cd ai-medical-assistant
 ```
 
-### 2. Install Dependencies
 ```bash
 npm install
 # or
+
+
 bun install
-```
+
 
 ### 3. Environment Configuration
 - Copy `.env.example` to `.env`
@@ -167,11 +169,8 @@ bun install
 ### 4. Database Setup (Supabase)
 - `profiles` - User profiles
 - `appointments` - Medical appointments
-- `medications` - Medication tracking
 - `allergies` - Allergy records
-- `chronic_conditions` - Long-term health conditions
 - `family_history` - Family medical history
-- `doctors` - Healthcare provider directory
 - `hospitals` - Hospital information
 - `hospital_pages` - Scraped hospital data
 - `doctor_reviews` - Provider ratings and reviews
@@ -181,31 +180,18 @@ bun install
 npm run dev
 # or
 bun run dev
-```
-
-The application will be available at `http://localhost:5173`
 
 ### Production Build & Deployment
-
-When you're ready to prepare the app for production you should compile (build) it. Compiling produces an optimized output (the `dist/` folder) that's smaller, faster, and ready to deploy to a static host or CDN.
-
-- Install dependencies (if not already installed):
 
 ```bash
 npm install
 # or
 bun install
-```
 
-- Build the production bundle using Vite:
 
-```bash
 npm run build
-# or
 bun run build
-```
 
-- Preview the production build locally (serves the contents of `dist/`):
 
 ```bash
 npm run preview
@@ -592,4 +578,34 @@ See the commit history for detailed version information.
 
 **Last Updated**: November 2025
 **Status**: Active Development
+
+## Appointment Reminders & Notifications
+
+You can enable reminders to get notified before your appointment using multiple channels:
+
+- **Email:** Receive appointment reminders directly to your registered email address.
+- **WhatsApp:** (Planned) Get notifications via WhatsApp using Twilio's WhatsApp API.
+- **SMS:** Get notified via SMS using Twilio API. This is currently supported and recommended for instant alerts.
+
+**Notification Type Configuration:**
+- Choose your preferred notification type: `email`, `sms`, `whatsapp`, or `all` (if multiple channels are enabled).
+- For SMS reminders, ensure your phone number is registered and verified in your profile.
+- All appointment notifications are sent using the Twilio API for SMS and WhatsApp (when enabled).
+
+**Example (SMS Reminder via Twilio):**
+```js
+client.messages.create({
+  body: 'Reminder: Your appointment is tomorrow at 10am.',
+  from: process.env.TWILIO_PHONE_NUMBER,
+  to: user.phoneNumber // must be a valid, verified number
+});
+```
+
+**Setup Steps:**
+1. Enable reminders in your account settings or during appointment creation.
+2. Select notification type (email, sms, whatsapp, all).
+3. Provide and verify your phone number for SMS/WhatsApp notifications.
+4. Ensure your email is up to date for email notifications.
+
+**Note:** WhatsApp reminders require additional setup and approval from Twilio. See [Twilio WhatsApp API](https://www.twilio.com/docs/whatsapp) for details.
 
