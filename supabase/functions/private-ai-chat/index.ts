@@ -26,6 +26,7 @@ serve(async (req) => {
 
     let provider;
     let healthContext = '';
+    let hospitalContext = '';
 
     // Handle test configuration
     if (testConfig) {
@@ -67,13 +68,16 @@ serve(async (req) => {
 
       // Fetch user's health context for private assistant (with error handling for missing tables)
       try {
-        const [profileData, medicationsData, allergiesData, appointmentsData] = await Promise.all([
+        const [profileData, medicationsData, allergiesData, appointmentsData, hospitalsData, hospitalPagesData] = await Promise.all([
           supabase.from('profiles').select('*').eq('id', userId).maybeSingle().then(r => r.error ? { data: null } : r),
           supabase.from('medications').select('*').eq('user_id', userId).eq('is_current', true).then(r => r.error ? { data: [] } : r),
           supabase.from('allergies').select('*').eq('user_id', userId).then(r => r.error ? { data: [] } : r),
           supabase.from('appointments').select('*').eq('user_id', userId)
             .gte('appointment_date', new Date().toISOString().split('T')[0])
             .order('appointment_date', { ascending: true}).limit(5).then(r => r.error ? { data: [] } : r),
+          // Fetch only hospitals and pages scraped by this user (if such a relation exists)
+          supabase.from('hospitals').select('*').eq('user_id', userId).then(r => r.error ? { data: [] } : r),
+          supabase.from('hospital_pages').select('*').eq('user_id', userId).then(r => r.error ? { data: [] } : r),
         ]);
 
         // Build context string
@@ -83,38 +87,87 @@ serve(async (req) => {
           allergiesData.data || [],
           appointmentsData.data || []
         );
+
+        // Build hospital context (summary for only user's scraped hospitals)
+        if (hospitalsData.data && hospitalsData.data.length > 0) {
+          hospitalContext = '\n\nYOUR SCRAPED HOSPITAL DATA:\n';
+          for (const hospital of hospitalsData.data) {
+            hospitalContext += `\n- ${hospital.name || 'Unknown Hospital'}${hospital.address ? ', ' + hospital.address : ''}`;
+            // Add a short summary from hospital_pages if available
+            const pages = (hospitalPagesData.data || []).filter(p => p.hospital_id === hospital.id);
+            if (pages.length > 0) {
+              const summary = pages[0].content ? pages[0].content.substring(0, 200).replace(/\n/g, ' ') + '...' : '';
+              hospitalContext += summary ? `\n  Summary: ${summary}` : '';
+            }
+          }
+        }
       } catch (contextError) {
-        console.warn('Failed to fetch health context:', contextError);
-        healthContext = ''; // Continue without context if tables don\'t exist
+        console.warn('Failed to fetch health or hospital context:', contextError);
+        healthContext = '';
+        hospitalContext = '';
       }
     }
 
     // Route to appropriate AI provider
     let response;
+    // Combine health and hospital context for the system prompt
+    // Restrict to health-related questions only
+    // Use a function to check if the question is health-related
+
+    // Block non-health topics using stopword/blacklist technique
+    function isHealthRelatedQuestion(message) {
+      if (!message) return false;
+      const stopwords = [
+        'ai', 'artificial intelligence', 'university', 'universities', 'college', 'colleges', 'school', 'schools', 'campus', 'campuses', 'faculty', 'department', 'student', 'students', 'academic', 'academics', 'education', 'educational', 'degree', 'degrees', 'diploma', 'certificate', 'technology', 'computer', 'software', 'hardware', 'engineering', 'science', 'sciences', 'business', 'law', 'economics', 'finance', 'bank', 'politics', 'history', 'geography', 'mathematics', 'math', 'physics', 'chemistry', 'biology', 'astronomy', 'robot', 'robotics', 'machine learning', 'deep learning', 'data science', 'statistics', 'programming', 'coding', 'developer', 'website', 'internet', 'cloud', 'server', 'network', 'app', 'application', 'android', 'ios', 'apple', 'google', 'microsoft', 'amazon', 'facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'media', 'news', 'movie', 'film', 'music', 'song', 'artist', 'actor', 'actress', 'director', 'producer', 'sports', 'football', 'cricket', 'basketball', 'tennis', 'golf', 'olympics', 'travel', 'tourism', 'hotel', 'restaurant', 'food', 'recipe', 'fashion', 'clothes', 'shopping', 'car', 'bike', 'vehicle', 'transport', 'flight', 'train', 'bus', 'ticket', 'weather', 'climate', 'environment', 'energy', 'agriculture', 'farming', 'animal', 'pet', 'dog', 'cat', 'bird', 'fish', 'game', 'gaming', 'playstation', 'xbox', 'nintendo', 'console', 'unrelated', 'irrelevant', 'random', 'general knowledge', 'trivia', 'joke', 'funny', 'meme', 'non-health', 'non medical', 'not health', 'not medical', 'conference', 'seminar', 'workshop', 'webinar', 'presentation', 'lecture', 'professor', 'teacher', 'principal', 'curriculum', 'syllabus', 'exam', 'examination', 'test score', 'grade', 'result', 'admission', 'enrollment', 'scholarship', 'grant', 'fellowship', 'internship', 'placement', 'alumni', 'library', 'hostel', 'mess', 'canteen', 'extracurricular', 'club', 'society', 'event', 'competition', 'award', 'ranking', 'rankings', 'placement', 'placement cell', 'placement office', 'placement record', 'placement statistics', 'placement report', 'placement season', 'placement drive', 'placement process', 'placement result', 'placement test', 'placement training', 'placement week', 'placement year', 'placement zone', 'placement-related', 'placement-oriented', 'placement-specific', 'placement-focused', 'placement-based', 'placement-linked', 'placement-driven', 'placement-centric', 'placement-friendly', 'placement-support', 'placement-service', 'placement-facility', 'placement-infrastructure', 'placement-network', 'placement-partner', 'placement-program', 'placement-scheme', 'placement-strategy', 'placement-support', 'placement-system', 'placement-team', 'placement-track', 'placement-unit', 'placement-window', 'placement-workshop', 'placement-year', 'placement-zone', 'placement-related', 'placement-oriented', 'placement-specific', 'placement-focused', 'placement-based', 'placement-linked', 'placement-driven', 'placement-centric', 'placement-friendly', 'placement-support', 'placement-service', 'placement-facility', 'placement-infrastructure', 'placement-network', 'placement-partner', 'placement-program', 'placement-scheme', 'placement-strategy', 'placement-support', 'placement-system', 'placement-team', 'placement-track', 'placement-unit', 'placement-window', 'placement-workshop', 'placement-year', 'placement-zone'
+      ];
+      const healthKeywords = [
+        'health', 'medical', 'medicine', 'doctor', 'hospital', 'clinic', 'symptom', 'treatment', 'diagnosis', 'disease', 'illness', 'medication', 'allergy', 'appointment', 'vaccine', 'surgery', 'therapy', 'emergency', 'pharmacy', 'prescription', 'pain', 'injury', 'infection', 'test', 'scan', 'blood', 'pressure', 'sugar', 'diabetes', 'cancer', 'cardio', 'mental', 'wellness', 'nutrition', 'diet', 'exercise', 'fitness', 'weight', 'immunization', 'checkup', 'screening', 'specialist', 'consultation', 'lab', 'report', 'x-ray', 'mri', 'ct', 'ultrasound', 'pregnancy', 'child', 'pediatric', 'gynecology', 'obstetric', 'dermatology', 'skin', 'eye', 'vision', 'dentist', 'oral', 'mouth', 'ear', 'nose', 'throat', 'lung', 'asthma', 'heart', 'kidney', 'liver', 'stomach', 'bowel', 'colon', 'prostate', 'cough', 'fever', 'flu', 'covid', 'virus', 'bacteria', 'infection', 'injury', 'fracture', 'burn', 'wound', 'first aid', 'ambulance', 'blood bank', 'organ', 'transplant', 'donor', 'rehab', 'addiction', 'smoking', 'alcohol', 'counseling', 'psychology', 'psychiatry', 'anxiety', 'depression', 'stress', 'sleep', 'insomnia', 'fatigue', 'wellbeing', 'well-being', 'well being'
+      ];
+      const lower = message.toLowerCase();
+      // If any stopword is present, block the query and log it
+      if (stopwords.some(word => lower.includes(word))) {
+        console.warn('[BLOCKED NON-HEALTH QUERY]', message);
+        return false;
+      }
+      // Otherwise, only allow if a health keyword is present
+      return healthKeywords.some(keyword => lower.includes(keyword));
+    }
+
+    const lastUserMessage = messages && messages.length > 0 ? messages[messages.length - 1].content : '';
+    if (!isHealthRelatedQuestion(lastUserMessage)) {
+      // Forcefully block non-health queries before any AI call
+      return new Response(
+        JSON.stringify({
+          content: 'Sorry, I can only provide information and support related to health, medicine, and your medical records. Please ask a health-related question.'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    // Only call AI provider for health-related queries
     switch (provider.provider_name) {
       case 'lovable':
-        response = await callLovableAI(messages, provider.model_name, healthContext);
+        response = await callLovableAI(messages, provider.model_name, combinedContext);
         break;
       case 'openai':
-        response = await callOpenAI(messages, provider.api_key_encrypted, provider.model_name, healthContext);
+        response = await callOpenAI(messages, provider.api_key_encrypted, provider.model_name, combinedContext);
         break;
       case 'gemini':
-        response = await callGemini(messages, provider.api_key_encrypted, provider.model_name, healthContext);
+        response = await callGemini(messages, provider.api_key_encrypted, provider.model_name, combinedContext);
         break;
       case 'anthropic':
-        response = await callAnthropic(messages, provider.api_key_encrypted, provider.model_name, healthContext);
+        response = await callAnthropic(messages, provider.api_key_encrypted, provider.model_name, combinedContext);
         break;
       case 'groq':
         response = await callCustomProvider(
           messages,
           provider.api_key_encrypted,
           provider.model_name,
-          healthContext,
+          combinedContext,
           provider.provider_config || { base_url: 'https://api.groq.com/openai/v1' }
         );
         break;
       case 'custom':
-        response = await callCustomProvider(messages, provider.api_key_encrypted, provider.model_name, healthContext, provider.provider_config);
+        response = await callCustomProvider(messages, provider.api_key_encrypted, provider.model_name, combinedContext, provider.provider_config);
         break;
       default:
         throw new Error(`Unsupported provider: ${provider.provider_name}`);
