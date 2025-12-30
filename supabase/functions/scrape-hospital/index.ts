@@ -102,10 +102,15 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in scrape-hospital:', error);
+    if (error instanceof Error && error.stack) {
+      console.error('Error stack:', error.stack);
+    }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const errorStack = error instanceof Error && error.stack ? error.stack : undefined;
     return new Response(
       JSON.stringify({ 
         error: errorMessage,
+        stack: errorStack,
         suggestion: 'The website may be blocking automated requests, experiencing downtime, or have connectivity issues. Try again later or check if the URL is correct.'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

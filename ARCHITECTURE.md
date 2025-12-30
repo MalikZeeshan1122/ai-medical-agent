@@ -21,7 +21,7 @@ The AI Medical Assistant is a full-stack web application built using modern web 
 └─────────────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                  Backend Services (Lovable Cloud)            │
+│                  Backend Services (Supabase BaaS)            │
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
 │  │  Edge      │  │ PostgreSQL │  │  Storage   │            │
 │  │ Functions  │  │  Database  │  │  Buckets   │            │
@@ -31,8 +31,7 @@ The AI Medical Assistant is a full-stack web application built using modern web 
 ┌─────────────────────────────────────────────────────────────┐
 │                  External Services                           │
 │  ┌────────────┐  ┌────────────┐  ┌────────────┐            │
-│  │  Lovable   │  │ Firecrawl  │  │ ScraperAPI │            │
-│  │  AI Gateway│  │    API     │  │            │            │
+│  │  AI Gateway│  │ Firecrawl  │  │ ScraperAPI │            │
 │  └────────────┘  └────────────┘  └────────────┘            │
 └─────────────────────────────────────────────────────────────┘
 ```

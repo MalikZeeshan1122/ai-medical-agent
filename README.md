@@ -17,12 +17,15 @@ This comprehensive platform combines cutting-edge AI technology with medical inf
 
 **Project URL**: https://ai-medical-assistant-three.vercel.app/
 
+
 **Documentation**:
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture and technical design
 - [SETUP_GUIDE.md](SETUP_GUIDE.md) - Complete setup and configuration guide
 - [API_DOCUMENTATION.md](API_DOCUMENTATION.md) - API reference and examples
 - [DESIGN_DOCUMENT.md](DESIGN_DOCUMENT.md) - Full project design document
 - [TESTING_GUIDE.md](TESTING_GUIDE.md) - Testing strategy and implementation
+- [docs/TWILIO_SETUP.md](docs/TWILIO_SETUP.md) - Twilio integration setup
+- [docs/APPOINTMENT_REMINDERS.md](docs/APPOINTMENT_REMINDERS.md) - Appointment reminders & notification setup
 
 ## Backend Architecture: Supabase
 This project uses Supabase as a scalable, secure, and fully managed backend platform, offering:

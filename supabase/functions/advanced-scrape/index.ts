@@ -17,7 +17,7 @@ interface ScrapedPage {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -28,11 +28,15 @@ Deno.serve(async (req) => {
     const { hospitalId, websiteUrl } = await req.json();
     console.log('Advanced scraping hospital:', hospitalId, websiteUrl);
 
+
     const startTime = Date.now();
     const scrapedPages: ScrapedPage[] = [];
     const visitedUrls = new Set<string>();
-    const maxPages = 100;
-    const maxDepth = 3;
+    const maxPages = 5; // Strict limit
+    const maxDepth = 1;  // Strict limit
+    const globalTimeoutMs = 20000;
+    const globalTimeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Global timeout exceeded')), globalTimeoutMs));
+
 
     // Validate URL
     let baseUrl: URL;
@@ -42,19 +46,30 @@ Deno.serve(async (req) => {
       throw new Error(`Invalid URL: ${websiteUrl}`);
     }
 
-    // Advanced recursive scraping function
     async function scrapePageAdvanced(url: string, depth: number): Promise<void> {
-      if (depth > maxDepth || visitedUrls.size >= maxPages || visitedUrls.has(url)) {
+      console.log(`[DEBUG] scrapePageAdvanced ENTRY: url=${url}, depth=${depth}, visitedUrls.size=${visitedUrls.size}`);
+      if (depth > maxDepth) {
+        console.log(`[DEBUG] Max depth exceeded: depth=${depth} > maxDepth=${maxDepth}. Returning.`);
         return;
       }
-
+      if (visitedUrls.size >= maxPages) {
+        console.log(`[DEBUG] Max pages limit reached: visitedUrls.size=${visitedUrls.size} >= maxPages=${maxPages}. Returning.`);
+        return;
+      }
+      if (visitedUrls.has(url)) {
+        console.log(`[DEBUG] URL already visited: ${url}. Returning.`);
+        return;
+      }
+      const skipExt = /\.(pdf|jpg|jpeg|png|gif|zip|doc|docx|xls|xlsx|ppt|pptx|mp4|mp3|avi|mov|wmv|svg|webp|avif|ico)$/i;
+      if (skipExt.test(url.split('?')[0])) {
+        console.log(`[DEBUG] Skipping non-HTML file: ${url}`);
+        return;
+      }
       visitedUrls.add(url);
-      console.log(`Scraping: ${url} (depth: ${depth}, total: ${visitedUrls.size})`);
-
+      console.log(`[DEBUG] Scraping: ${url} (depth: ${depth}, total: ${visitedUrls.size})`);
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45000); // Increased from 30s to 45s
-
+        const timeoutId = setTimeout(() => controller.abort(), 20000);
         const response = await fetch(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -65,27 +80,21 @@ Deno.serve(async (req) => {
           },
           signal: controller.signal,
         });
-
         clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          console.error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+        const contentType = response.headers.get('content-type') || '';
+        if (!response.ok || !contentType.includes('text/html')) {
+          console.error(`[DEBUG] Skipped non-HTML or failed fetch: ${url} (${response.status} ${response.statusText}, content-type: ${contentType})`);
           return;
         }
-
         const html = await response.text();
-        console.log(`Fetched ${html.length} bytes from ${url}`);
-        
+        console.log(`[DEBUG] Fetched ${html.length} bytes from ${url}`);
         let doc;
         try {
           doc = new DOMParser().parseFromString(html, 'text/html');
         } catch (parseErr) {
-          console.error(`Failed to parse HTML from ${url}:`, parseErr);
-          // Fallback: try to extract basic info without DOM parsing
+          console.error(`[DEBUG] Failed to parse HTML from ${url}:`, parseErr);
           const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
           const title = titleMatch ? titleMatch[1].trim() : extractTitleFromUrl(url);
-          
-          // Extract basic text content as fallback
           const textContent = html
             .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
             .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -93,7 +102,6 @@ Deno.serve(async (req) => {
             .replace(/\s+/g, ' ')
             .trim()
             .substring(0, 50000);
-          
           if (textContent.length > 100) {
             scrapedPages.push({
               url,
@@ -102,60 +110,44 @@ Deno.serve(async (req) => {
               page_type: 'general',
               metadata: { method: 'advanced_native_fallback' },
             });
-            console.log(`Scraped with fallback: ${title}`);
+            console.log(`[DEBUG] Scraped with fallback: ${title}`);
           }
           return;
         }
-
         if (!doc) {
-          console.error(`Failed to parse HTML from ${url}`);
+          console.error(`[DEBUG] Failed to parse HTML from ${url}`);
           return;
         }
-
-        // Extract title
         const titleElement = doc.querySelector('title');
         const title = titleElement?.textContent?.trim() || extractTitleFromUrl(url);
-        console.log(`Page title: ${title}`);
-
-        // Extract main content with improved selectors
+        console.log(`[DEBUG] Page title: ${title}`);
         const contentSelectors = [
           'main', 'article', '[role="main"]',
           '.content', '#content', '.main-content',
           '.post-content', '.entry-content', '.article-content',
           'body'
         ];
-
         let contentElement = null;
         for (const selector of contentSelectors) {
           contentElement = doc.querySelector(selector);
           if (contentElement) break;
         }
-
-        // Remove unwanted elements
         const unwantedSelectors = [
           'script', 'style', 'nav', 'header', 'footer',
           '.advertisement', '.ads', '.sidebar', '.menu',
           '[role="navigation"]', '.navigation', '#navigation'
         ];
-
         unwantedSelectors.forEach(selector => {
           const elements = contentElement?.querySelectorAll(selector);
           elements?.forEach((el: any) => el.remove?.());
         });
-
         const content = contentElement?.textContent
           ?.replace(/\s+/g, ' ')
           ?.trim()
           ?.substring(0, 50000) || '';
-
-        console.log(`Extracted ${content.length} characters of content`);
-
-        // Determine page type with better classification
+        console.log(`[DEBUG] Extracted ${content.length} characters of content`);
         const pageType = determinePageTypeAdvanced(url, content, doc);
-
-        // Extract metadata
         const metadata = extractMetadata(doc, url);
-
         scrapedPages.push({
           url,
           title,
@@ -163,22 +155,15 @@ Deno.serve(async (req) => {
           page_type: pageType,
           metadata,
         });
-
-        console.log(`Successfully scraped page: ${title} (type: ${pageType})`);
-
-        // Extract and follow links (only same domain)
+        console.log(`[DEBUG] Successfully scraped page: ${title} (type: ${pageType})`);
         if (depth < maxDepth && visitedUrls.size < maxPages) {
           const links = doc.querySelectorAll('a[href]');
           const linkPromises: Promise<void>[] = [];
-
           for (const link of links) {
             const href = (link as any).getAttribute?.('href');
             if (!href) continue;
-
             try {
               const absoluteUrl = new URL(href, url);
-              
-              // Only follow same-domain links and avoid certain patterns
               if (
                 absoluteUrl.hostname === baseUrl.hostname &&
                 !absoluteUrl.pathname.match(/\.(pdf|jpg|jpeg|png|gif|zip|doc|docx)$/i) &&
@@ -186,46 +171,48 @@ Deno.serve(async (req) => {
                 !absoluteUrl.pathname.includes('/login') &&
                 !visitedUrls.has(absoluteUrl.href)
               ) {
-                linkPromises.push(scrapePageAdvanced(absoluteUrl.href, depth + 1));
-                
-                // Limit concurrent requests
-                if (linkPromises.length >= 5) {
-                  await Promise.all(linkPromises);
-                  linkPromises.length = 0;
+                // Check limits before recursing
+                if (visitedUrls.size < maxPages && depth + 1 <= maxDepth) {
+                  linkPromises.push(scrapePageAdvanced(absoluteUrl.href, depth + 1));
+                  if (linkPromises.length >= 5) {
+                    await Promise.all(linkPromises);
+                    linkPromises.length = 0;
+                  }
+                } else {
+                  console.log(`[DEBUG] Not recursing further: visitedUrls.size=${visitedUrls.size}, depth+1=${depth+1}`);
                 }
               }
             } catch (e) {
-              // Invalid URL, skip
               continue;
             }
           }
-
-          // Wait for remaining promises
           if (linkPromises.length > 0) {
             await Promise.all(linkPromises);
           }
         }
       } catch (error) {
-        console.error(`Error scraping ${url}:`, error);
+        console.error(`[DEBUG] Error scraping ${url}:`, error);
       }
     }
-
-    // Start scraping from the main URL
-    await scrapePageAdvanced(websiteUrl, 0);
-
-    const duration = (Date.now() - startTime) / 1000;
-
-    // Save to database
-    if (scrapedPages.length > 0) {
-      // Delete old pages
-      const { error: deleteError } = await supabase
-        .from('hospital_pages')
-        .delete()
-        .eq('hospital_id', hospitalId);
-      
-      if (deleteError) {
-        console.error('Error deleting old pages:', deleteError);
-      }
+    try {
+      await Promise.race([
+        scrapePageAdvanced(websiteUrl, 0),
+        globalTimeoutPromise
+      ]);
+    } catch (scrapeError) {
+      console.error('[DEBUG] Scraping failed:', scrapeError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: scrapeError instanceof Error ? scrapeError.message : String(scrapeError),
+          type: scrapeError instanceof Error ? scrapeError.constructor.name : typeof scrapeError,
+          suggestion: scrapeError instanceof Error && scrapeError.message.includes('timeout')
+            ? 'Try reducing the number of pages or depth, or check if the target site is slow.'
+            : 'Check the logs for more details.'
+        }),
+        { status: 546, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
       // Insert new pages
       const { error: insertError } = await supabase
