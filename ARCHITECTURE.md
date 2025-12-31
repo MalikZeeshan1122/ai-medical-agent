@@ -67,7 +67,7 @@ The AI Medical Assistant is a full-stack web application built using modern web 
 **Function: chat**
 - Purpose: Stream AI responses for medical queries
 - Trigger: HTTP POST request
-- Dependencies: Lovable AI Gateway
+
 - Features:
   - System prompt injection
   - Conversation history management
@@ -98,7 +98,7 @@ The AI Medical Assistant is a full-stack web application built using modern web 
 **Function: private-ai-chat**
 - Purpose: User-specific AI conversations
 - Trigger: HTTP POST request
-- Dependencies: Lovable AI Gateway
+
 - Features:
   - User context inclusion
   - Private conversation history
@@ -116,7 +116,7 @@ The AI Medical Assistant is a full-stack web application built using modern web 
 **Function: hospital-assistant**
 - Purpose: Hospital-specific AI assistant
 - Trigger: HTTP POST request
-- Dependencies: Lovable AI Gateway, Hospital database
+
 - Features:
   - Context-aware responses using scraped hospital data
   - Service information retrieval
@@ -170,7 +170,7 @@ Edge Function (/functions/v1/chat)
     ↓
 System Prompt Addition
     ↓
-Lovable AI Gateway
+
     ↓
 AI Model Processing
     ↓
@@ -260,7 +260,7 @@ UI Update
 - **Serverless Functions**: Auto-scaling edge functions
 - **Connection Pooling**: PostgreSQL connection management
 - **Caching**: React Query for client-side caching
-- **Rate Limiting**: Lovable AI Gateway rate limits
+
 
 ### Database Scalability
 - **Read Replicas**: For read-heavy workloads (future)
@@ -352,12 +352,12 @@ UI Update
 | Build Tool | Vite | Fast development and optimized builds |
 | Styling | Tailwind CSS | Utility-first CSS framework |
 | UI Components | shadcn/ui | Accessible component library |
-| Backend Platform | Lovable Cloud | Serverless backend infrastructure |
+
 | Database | PostgreSQL | Relational data storage |
 | Authentication | Supabase Auth | User authentication and authorization |
 | Storage | Supabase Storage | File storage with CDN |
 | Edge Functions | Deno Runtime | Serverless function execution |
-| AI Gateway | Lovable AI | AI model access and management |
+
 | Web Scraping | Firecrawl/ScraperAPI | Website content extraction |
 | Type Safety | TypeScript | Static type checking |
 | Form Handling | React Hook Form + Zod | Form validation and management |
@@ -369,7 +369,7 @@ UI Update
 ```
 GitHub Repository
     ↓
-Lovable Build System
+
     ↓
 ┌─────────────┬──────────────┐
 │   Frontend  │   Backend    │
@@ -384,7 +384,7 @@ Lovable Build System
 ### Deployment Process
 
 1. **Code Push**: Developer pushes to GitHub
-2. **Auto Deployment**: Lovable detects changes
+
 3. **Backend Deploy**: Edge functions deploy immediately
 4. **Frontend Build**: Static assets built and optimized
 5. **Frontend Deploy**: Requires manual "Update" click
@@ -394,8 +394,8 @@ Lovable Build System
 ### Environment Management
 
 - **Development**: Local development server
-- **Staging**: Lovable preview environment
-- **Production**: Custom domain or lovable.app subdomain
+
+
 
 ---
 

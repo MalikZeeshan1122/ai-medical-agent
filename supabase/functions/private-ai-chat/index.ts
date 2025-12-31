@@ -68,24 +68,47 @@ serve(async (req) => {
 
       // Fetch user's health context for private assistant (with error handling for missing tables)
       try {
-        const [profileData, medicationsData, allergiesData, appointmentsData, hospitalsData, hospitalPagesData] = await Promise.all([
+
+        // Fetch both upcoming and past appointments
+        // Debug log for userId
+        console.log('[DEBUG] Fetching profile for userId:', userId);
+        const [profileData, medicationsData, allergiesData, upcomingAppointmentsData, pastAppointmentsData, hospitalsData, hospitalPagesData] = await Promise.all([
           supabase.from('profiles').select('*').eq('id', userId).maybeSingle().then(r => r.error ? { data: null } : r),
           supabase.from('medications').select('*').eq('user_id', userId).eq('is_current', true).then(r => r.error ? { data: [] } : r),
           supabase.from('allergies').select('*').eq('user_id', userId).then(r => r.error ? { data: [] } : r),
+          // Upcoming appointments (next 5)
           supabase.from('appointments').select('*').eq('user_id', userId)
             .gte('appointment_date', new Date().toISOString().split('T')[0])
-            .order('appointment_date', { ascending: true}).limit(5).then(r => r.error ? { data: [] } : r),
-          // Fetch only hospitals and pages scraped by this user (if such a relation exists)
+            .order('appointment_date', { ascending: true }).limit(5).then(r => r.error ? { data: [] } : r),
+          // Past appointments (last 5)
+          supabase.from('appointments').select('*').eq('user_id', userId)
+            .lt('appointment_date', new Date().toISOString().split('T')[0])
+            .order('appointment_date', { ascending: false }).limit(5).then(r => r.error ? { data: [] } : r),
           supabase.from('hospitals').select('*').eq('user_id', userId).then(r => r.error ? { data: [] } : r),
           supabase.from('hospital_pages').select('*').eq('user_id', userId).then(r => r.error ? { data: [] } : r),
         ]);
+        // Debug log for profile and appointments
+        console.log('[DEBUG] Profile data for user', userId, JSON.stringify(profileData.data));
+        console.log('[DEBUG] Upcoming appointments for user', userId, JSON.stringify(upcomingAppointmentsData.data));
+        console.log('[DEBUG] Past appointments for user', userId, JSON.stringify(pastAppointmentsData.data));
 
-        // Build context string
+        // Build context string with both upcoming and past appointments
+        // If no profile found, return a clear message
+        if (!profileData.data) {
+          console.warn('[WARN] No profile found for user', userId);
+          return new Response(
+            JSON.stringify({
+              content: 'I do not have your profile information (such as your name or medical history) in the system. Please ensure your profile is set up in the app or contact support.'
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
         healthContext = buildHealthContext(
           profileData.data,
           medicationsData.data || [],
           allergiesData.data || [],
-          appointmentsData.data || []
+          upcomingAppointmentsData.data || [],
+          pastAppointmentsData.data || []
         );
 
         // Build hospital context (summary for only user's scraped hospitals)
@@ -211,9 +234,15 @@ serve(async (req) => {
   }
 });
 
-function buildHealthContext(profile: any, medications: any[], allergies: any[], appointments: any[]): string {
+function buildHealthContext(
+  profile: any,
+  medications: any[],
+  allergies: any[],
+  upcomingAppointments: any[],
+  pastAppointments: any[]
+): string {
   let context = "USER'S PRIVATE HEALTH INFORMATION:\n\n";
-  
+
   if (profile) {
     context += `Patient: ${profile.full_name || 'Unknown'}\n`;
     if (profile.date_of_birth) context += `Age: ${calculateAge(profile.date_of_birth)} years\n`;
@@ -229,8 +258,12 @@ function buildHealthContext(profile: any, medications: any[], allergies: any[], 
     context += `\nCurrent Medications:\n${medications.map(m => `- ${m.medication_name}: ${m.dosage}, ${m.frequency}`).join('\n')}\n`;
   }
 
-  if (appointments.length > 0) {
-    context += `\nUpcoming Appointments:\n${appointments.map(a => `- ${a.appointment_date} with ${a.doctor_name}`).join('\n')}\n`;
+  if (upcomingAppointments.length > 0) {
+    context += `\nUpcoming Appointments:\n${upcomingAppointments.map(a => `- ${a.appointment_date} with ${a.doctor_name}`).join('\n')}\n`;
+  }
+
+  if (pastAppointments.length > 0) {
+    context += `\nRecent Past Appointments:\n${pastAppointments.map(a => `- ${a.appointment_date} with ${a.doctor_name}`).join('\n')}\n`;
   }
 
   return context;

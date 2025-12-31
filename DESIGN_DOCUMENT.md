@@ -53,19 +53,19 @@ The AI Medical Assistant encompasses:
 - TanStack Query for state management and data fetching
 
 **Backend:**
-- Lovable Cloud (Supabase-powered) for database and authentication
+
 - PostgreSQL for relational data storage
 - Row Level Security (RLS) for data protection
 - Deno-based Edge Functions for serverless computing
 
 **AI Integration:**
-- Lovable AI with support for multiple models:
+
   - Google Gemini 2.5 Pro/Flash for medical reasoning
   - OpenAI GPT-5 models for conversational AI
 - Streaming responses for real-time interaction
 
 **Infrastructure:**
-- Lovable Cloud hosting platform
+
 - Automated CI/CD pipeline
 - GitHub integration for version control
 
