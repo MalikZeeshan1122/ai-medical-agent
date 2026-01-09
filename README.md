@@ -1,5 +1,7 @@
 # AI Medical Assistant
 
+![Main UI](public/mainui.png)
+
 ## Professional Overview
 
 AI Medical Assistant is a modern, full-stack web application designed to deliver intelligent, secure, and user-friendly healthcare solutions. Leveraging advanced AI models and a robust Supabase backend, it enables real-time health consultations, comprehensive medical record management, and seamless integration with healthcare resources.
