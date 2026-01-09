@@ -73,9 +73,12 @@ This project uses Supabase as a scalable, secure, and fully managed backend plat
 
 ## Technology Stack
 
+
+
 ### Frontend
 - **React 18.3** - UI framework
 - **TypeScript** - Type-safe development
+- **JavaScript** - Used for scripts, configuration, and some integration files
 - **Vite** - Build tool and dev server
 - **Tailwind CSS** - Utility-first styling
 - **Shadcn/ui** - Component library
