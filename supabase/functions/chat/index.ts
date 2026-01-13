@@ -22,7 +22,7 @@ serve(async (req) => {
     // Fetch user's API tool integrations if userId provided
     let tools: any[] = [];
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY')!;
     const supabase = userId ? createClient(supabaseUrl, supabaseKey) : null;
 
     if (userId && supabase) {
@@ -146,7 +146,7 @@ ${tools.length > 0 ? `\nYou have access to the following API tools that you can 
           
           // Execute each tool call
           const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-          const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+          const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY')!;
           const supabase = createClient(supabaseUrl, supabaseKey);
           
           const toolResults = await Promise.all(

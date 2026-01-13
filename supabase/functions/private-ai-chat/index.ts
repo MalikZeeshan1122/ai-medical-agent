@@ -21,12 +21,14 @@ serve(async (req) => {
 
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    // Use SERVICE_ROLE_KEY (custom secrets cannot start with SUPABASE_)
+    const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     let provider;
     let healthContext = '';
     let hospitalContext = '';
+    let combinedContext = '';
 
     // Handle test configuration
     if (testConfig) {
@@ -72,7 +74,7 @@ serve(async (req) => {
         // Fetch both upcoming and past appointments
         // Debug log for userId
         console.log('[DEBUG] Fetching profile for userId:', userId);
-        const [profileData, medicationsData, allergiesData, upcomingAppointmentsData, pastAppointmentsData, hospitalsData, hospitalPagesData] = await Promise.all([
+        const [profileData, medicationsData, allergiesData, upcomingAppointmentsData, pastAppointmentsData, hospitalsData] = await Promise.all([
           supabase.from('profiles').select('*').eq('id', userId).maybeSingle().then(r => r.error ? { data: null } : r),
           supabase.from('medications').select('*').eq('user_id', userId).eq('is_current', true).then(r => r.error ? { data: [] } : r),
           supabase.from('allergies').select('*').eq('user_id', userId).then(r => r.error ? { data: [] } : r),
@@ -84,13 +86,18 @@ serve(async (req) => {
           supabase.from('appointments').select('*').eq('user_id', userId)
             .lt('appointment_date', new Date().toISOString().split('T')[0])
             .order('appointment_date', { ascending: false }).limit(5).then(r => r.error ? { data: [] } : r),
-          supabase.from('hospitals').select('*').eq('user_id', userId).then(r => r.error ? { data: [] } : r),
-          supabase.from('hospital_pages').select('*').eq('user_id', userId).then(r => r.error ? { data: [] } : r),
+          // Fetch all hospitals with their scraped pages (hospitals are shared, not per-user)
+          supabase.from('hospitals').select('*, hospital_pages(*)').limit(10).then(r => {
+            console.log('[DEBUG] Hospitals query result:', r.error ? r.error.message : `${r.data?.length || 0} hospitals`);
+            return r.error ? { data: [] } : r;
+          }),
         ]);
+        
         // Debug log for profile and appointments
         console.log('[DEBUG] Profile data for user', userId, JSON.stringify(profileData.data));
         console.log('[DEBUG] Upcoming appointments for user', userId, JSON.stringify(upcomingAppointmentsData.data));
         console.log('[DEBUG] Past appointments for user', userId, JSON.stringify(pastAppointmentsData.data));
+        console.log('[DEBUG] Hospitals found:', hospitalsData.data?.length || 0);
 
         // Build context string with both upcoming and past appointments
         // If no profile found, return a clear message
@@ -115,15 +122,53 @@ serve(async (req) => {
         if (hospitalsData.data && hospitalsData.data.length > 0) {
           hospitalContext = '\n\nYOUR SCRAPED HOSPITAL DATA:\n';
           for (const hospital of hospitalsData.data) {
-            hospitalContext += `\n- ${hospital.name || 'Unknown Hospital'}${hospital.address ? ', ' + hospital.address : ''}`;
-            // Add a short summary from hospital_pages if available
-            const pages = (hospitalPagesData.data || []).filter(p => p.hospital_id === hospital.id);
+            hospitalContext += `\n\n## ${hospital.name || 'Unknown Hospital'}`;
+            if (hospital.address) hospitalContext += `\nAddress: ${hospital.address}`;
+            if (hospital.city) hospitalContext += `, ${hospital.city}`;
+            if (hospital.website_url) hospitalContext += `\nWebsite: ${hospital.website_url}`;
+            
+            // Add content from hospital_pages
+            const pages = hospital.hospital_pages || [];
             if (pages.length > 0) {
-              const summary = pages[0].content ? pages[0].content.substring(0, 200).replace(/\n/g, ' ') + '...' : '';
-              hospitalContext += summary ? `\n  Summary: ${summary}` : '';
+              hospitalContext += `\n\nScraped content from ${pages.length} pages:`;
+              for (const page of pages.slice(0, 3)) { // Limit to 3 pages per hospital
+                if (page.title) hospitalContext += `\n\n### ${page.title}`;
+                if (page.content) {
+                  // Include more content - up to 1500 chars per page
+                  const content = page.content.substring(0, 1500).replace(/\s+/g, ' ').trim();
+                  hospitalContext += `\n${content}`;
+                  if (page.content.length > 1500) hospitalContext += '...';
+                }
+              }
             }
           }
+          console.log('[DEBUG] Hospital context length:', hospitalContext.length);
         }
+        // Fetch recent uploaded documents and append to healthContext (limit to 5)
+        try {
+          const { data: documents, error: docsError } = await supabase
+            .from('medical_documents')
+            .select('file_name, file_url, document_type, uploaded_at, summary')
+            .eq('user_id', userId)
+            .order('uploaded_at', { ascending: false })
+            .limit(5);
+
+          if (!docsError && documents && documents.length > 0) {
+            const docsSummary = documents
+              .map((d: any) => {
+                if (d.summary) return `- ${d.document_type}: ${d.file_name} — ${d.summary}`;
+                return `- ${d.document_type}: ${d.file_name} (${d.file_url || 'no-url'})`;
+              })
+              .join('\n');
+
+            healthContext += '\n\nUSER UPLOADED DOCUMENTS:\n' + docsSummary;
+          }
+        } catch (docErr) {
+          console.warn('Failed to fetch user documents:', docErr);
+        }
+
+        // Combine health and hospital context
+        combinedContext = `${healthContext}\n\n${hospitalContext}`;
       } catch (contextError) {
         console.warn('Failed to fetch health or hospital context:', contextError);
         healthContext = '';
@@ -138,15 +183,29 @@ serve(async (req) => {
     // Use a function to check if the question is health-related
 
     // Block non-health topics using stopword/blacklist technique
-    function isHealthRelatedQuestion(message) {
+    function isHealthRelatedQuestion(message: string, conversationHistory: any[]): boolean {
       if (!message) return false;
+      
+      // Allow short conversational responses if there's existing health conversation
+      const shortResponses = ['yes', 'no', 'ok', 'okay', 'sure', 'please', 'thanks', 'thank you', 'go ahead', 'continue', 'tell me', 'show me', 'help', 'what', 'why', 'how', 'when', 'where', 'which'];
+      const lower = message.toLowerCase().trim();
+      
+      // If it's a short response and we have conversation history, allow it
+      if (lower.length < 30 && conversationHistory.length > 1) {
+        if (shortResponses.some(r => lower === r || lower.startsWith(r + ' ') || lower.endsWith(' ' + r))) {
+          return true;
+        }
+      }
+      
       const stopwords = [
-        'ai', 'artificial intelligence', 'university', 'universities', 'college', 'colleges', 'school', 'schools', 'campus', 'campuses', 'faculty', 'department', 'student', 'students', 'academic', 'academics', 'education', 'educational', 'degree', 'degrees', 'diploma', 'certificate', 'technology', 'computer', 'software', 'hardware', 'engineering', 'science', 'sciences', 'business', 'law', 'economics', 'finance', 'bank', 'politics', 'history', 'geography', 'mathematics', 'math', 'physics', 'chemistry', 'biology', 'astronomy', 'robot', 'robotics', 'machine learning', 'deep learning', 'data science', 'statistics', 'programming', 'coding', 'developer', 'website', 'internet', 'cloud', 'server', 'network', 'app', 'application', 'android', 'ios', 'apple', 'google', 'microsoft', 'amazon', 'facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'media', 'news', 'movie', 'film', 'music', 'song', 'artist', 'actor', 'actress', 'director', 'producer', 'sports', 'football', 'cricket', 'basketball', 'tennis', 'golf', 'olympics', 'travel', 'tourism', 'hotel', 'restaurant', 'food', 'recipe', 'fashion', 'clothes', 'shopping', 'car', 'bike', 'vehicle', 'transport', 'flight', 'train', 'bus', 'ticket', 'weather', 'climate', 'environment', 'energy', 'agriculture', 'farming', 'animal', 'pet', 'dog', 'cat', 'bird', 'fish', 'game', 'gaming', 'playstation', 'xbox', 'nintendo', 'console', 'unrelated', 'irrelevant', 'random', 'general knowledge', 'trivia', 'joke', 'funny', 'meme', 'non-health', 'non medical', 'not health', 'not medical', 'conference', 'seminar', 'workshop', 'webinar', 'presentation', 'lecture', 'professor', 'teacher', 'principal', 'curriculum', 'syllabus', 'exam', 'examination', 'test score', 'grade', 'result', 'admission', 'enrollment', 'scholarship', 'grant', 'fellowship', 'internship', 'placement', 'alumni', 'library', 'hostel', 'mess', 'canteen', 'extracurricular', 'club', 'society', 'event', 'competition', 'award', 'ranking', 'rankings', 'placement', 'placement cell', 'placement office', 'placement record', 'placement statistics', 'placement report', 'placement season', 'placement drive', 'placement process', 'placement result', 'placement test', 'placement training', 'placement week', 'placement year', 'placement zone', 'placement-related', 'placement-oriented', 'placement-specific', 'placement-focused', 'placement-based', 'placement-linked', 'placement-driven', 'placement-centric', 'placement-friendly', 'placement-support', 'placement-service', 'placement-facility', 'placement-infrastructure', 'placement-network', 'placement-partner', 'placement-program', 'placement-scheme', 'placement-strategy', 'placement-support', 'placement-system', 'placement-team', 'placement-track', 'placement-unit', 'placement-window', 'placement-workshop', 'placement-year', 'placement-zone', 'placement-related', 'placement-oriented', 'placement-specific', 'placement-focused', 'placement-based', 'placement-linked', 'placement-driven', 'placement-centric', 'placement-friendly', 'placement-support', 'placement-service', 'placement-facility', 'placement-infrastructure', 'placement-network', 'placement-partner', 'placement-program', 'placement-scheme', 'placement-strategy', 'placement-support', 'placement-system', 'placement-team', 'placement-track', 'placement-unit', 'placement-window', 'placement-workshop', 'placement-year', 'placement-zone'
+        'university', 'universities', 'college', 'colleges', 'school', 'schools', 'campus', 'campuses', 'faculty', 'department', 'student', 'students', 'academic', 'academics', 'education', 'educational', 'degree', 'degrees', 'diploma', 'certificate', 'technology', 'computer', 'software', 'hardware', 'engineering', 'business', 'law', 'economics', 'finance', 'bank', 'politics', 'geography', 'mathematics', 'math', 'physics', 'chemistry', 'astronomy', 'robot', 'robotics', 'machine learning', 'deep learning', 'data science', 'statistics', 'programming', 'coding', 'developer', 'website', 'internet', 'cloud', 'server', 'network', 'android', 'ios', 'apple', 'google', 'microsoft', 'amazon', 'facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'media', 'news', 'movie', 'film', 'music', 'song', 'artist', 'actor', 'actress', 'director', 'producer', 'sports', 'football', 'cricket', 'basketball', 'tennis', 'golf', 'olympics', 'travel', 'tourism', 'hotel', 'restaurant', 'recipe', 'fashion', 'clothes', 'shopping', 'car', 'bike', 'vehicle', 'transport', 'flight', 'train', 'bus', 'ticket', 'weather', 'climate', 'environment', 'energy', 'agriculture', 'farming', 'pet', 'dog', 'cat', 'bird', 'fish', 'game', 'gaming', 'playstation', 'xbox', 'nintendo', 'console', 'irrelevant', 'random', 'general knowledge', 'trivia', 'joke', 'funny', 'meme', 'conference', 'seminar', 'workshop', 'webinar', 'presentation', 'lecture', 'professor', 'teacher', 'principal', 'curriculum', 'syllabus', 'exam', 'examination', 'test score', 'grade', 'admission', 'enrollment', 'scholarship', 'grant', 'fellowship', 'internship', 'placement', 'alumni', 'library', 'hostel', 'mess', 'canteen', 'extracurricular', 'club', 'society', 'event', 'competition', 'award', 'ranking', 'rankings'
       ];
       const healthKeywords = [
-        'health', 'medical', 'medicine', 'doctor', 'hospital', 'clinic', 'symptom', 'treatment', 'diagnosis', 'disease', 'illness', 'medication', 'allergy', 'appointment', 'vaccine', 'surgery', 'therapy', 'emergency', 'pharmacy', 'prescription', 'pain', 'injury', 'infection', 'test', 'scan', 'blood', 'pressure', 'sugar', 'diabetes', 'cancer', 'cardio', 'mental', 'wellness', 'nutrition', 'diet', 'exercise', 'fitness', 'weight', 'immunization', 'checkup', 'screening', 'specialist', 'consultation', 'lab', 'report', 'x-ray', 'mri', 'ct', 'ultrasound', 'pregnancy', 'child', 'pediatric', 'gynecology', 'obstetric', 'dermatology', 'skin', 'eye', 'vision', 'dentist', 'oral', 'mouth', 'ear', 'nose', 'throat', 'lung', 'asthma', 'heart', 'kidney', 'liver', 'stomach', 'bowel', 'colon', 'prostate', 'cough', 'fever', 'flu', 'covid', 'virus', 'bacteria', 'infection', 'injury', 'fracture', 'burn', 'wound', 'first aid', 'ambulance', 'blood bank', 'organ', 'transplant', 'donor', 'rehab', 'addiction', 'smoking', 'alcohol', 'counseling', 'psychology', 'psychiatry', 'anxiety', 'depression', 'stress', 'sleep', 'insomnia', 'fatigue', 'wellbeing', 'well-being', 'well being'
+        'health', 'medical', 'medicine', 'doctor', 'hospital', 'clinic', 'symptom', 'treatment', 'diagnosis', 'disease', 'illness', 'medication', 'allergy', 'appointment', 'vaccine', 'surgery', 'therapy', 'emergency', 'pharmacy', 'prescription', 'pain', 'injury', 'infection', 'test', 'scan', 'blood', 'pressure', 'sugar', 'diabetes', 'cancer', 'cardio', 'mental', 'wellness', 'nutrition', 'diet', 'exercise', 'fitness', 'weight', 'immunization', 'checkup', 'screening', 'specialist', 'consultation', 'lab', 'report', 'x-ray', 'mri', 'ct', 'ultrasound', 'pregnancy', 'child', 'pediatric', 'gynecology', 'obstetric', 'dermatology', 'skin', 'eye', 'vision', 'dentist', 'oral', 'mouth', 'ear', 'nose', 'throat', 'lung', 'asthma', 'heart', 'kidney', 'liver', 'stomach', 'bowel', 'colon', 'prostate', 'cough', 'fever', 'flu', 'covid', 'virus', 'bacteria', 'infection', 'injury', 'fracture', 'burn', 'wound', 'first aid', 'ambulance', 'blood bank', 'organ', 'transplant', 'donor', 'rehab', 'addiction', 'smoking', 'alcohol', 'counseling', 'psychology', 'psychiatry', 'anxiety', 'depression', 'stress', 'sleep', 'insomnia', 'fatigue', 'wellbeing', 'well-being', 'well being',
+        // Document-related keywords
+        'document', 'upload', 'file', 'result', 'results', 'my document', 'my file', 'my report', 'my test', 'uploaded', 'prescription', 'record', 'records', 'history', 'summary', 'analyze', 'read', 'show', 'what does', 'explain'
       ];
-      const lower = message.toLowerCase();
+      
       // If any stopword is present, block the query and log it
       if (stopwords.some(word => lower.includes(word))) {
         console.warn('[BLOCKED NON-HEALTH QUERY]', message);
@@ -157,7 +216,7 @@ serve(async (req) => {
     }
 
     const lastUserMessage = messages && messages.length > 0 ? messages[messages.length - 1].content : '';
-    if (!isHealthRelatedQuestion(lastUserMessage)) {
+    if (!isHealthRelatedQuestion(lastUserMessage, messages)) {
       // Forcefully block non-health queries before any AI call
       return new Response(
         JSON.stringify({

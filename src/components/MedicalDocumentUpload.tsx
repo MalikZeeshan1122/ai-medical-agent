@@ -27,32 +27,49 @@ export const MedicalDocumentUpload = ({ userId }: { userId: string }) => {
 
     setUploading(true)
     try {
+      // Log auth/session info to help debug RLS issues
+      try {
+        const session = await supabase.auth.getSession()
+        const { data: authUser } = await supabase.auth.getUser()
+        console.log('Supabase session:', session)
+        console.log('Auth user id:', authUser?.user?.id, 'component userId prop:', userId)
+      } catch (logErr) {
+        console.warn('Could not read supabase auth session:', logErr)
+      }
+
       // Create file path
-      const fileName = `${Date.now()}_${file.name}`
+      const ext = file.name.split('.').pop()
+      const safeBase = file.name
+        .replace(/\s+/g, '_')
+        .replace(/[^a-zA-Z0-9_\-\.]/g, '')
+      const fileName = `doc_${Date.now()}_${safeBase}`
       const filePath = `${userId}/${documentType}/${fileName}`
 
-      // Upload to storage
-      await uploadFile('medical-documents', filePath, file)
+      // Upload via serverless edge function (service-role) to avoid client RLS issues
+      const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = reader.result as string
+          // result is like data:<mime>;base64,AAA...
+          const b = result.split(',')[1]
+          resolve(b)
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
 
-      // Get public URL
-      const fileUrl = getPublicUrl('medical-documents', filePath)
+      const base64 = await toBase64(file)
 
-      // Save document info to database
-      const { data, error } = await supabase
-        .from('medical_documents')
-        .insert([
-          {
-            user_id: userId,
-            document_type: documentType,
-            file_name: file.name,
-            file_url: fileUrl,
-            file_path: filePath,
-            uploaded_at: new Date().toISOString(),
-          },
-        ])
-        .select()
+      const { data: resData, error: funcError } = await supabase.functions.invoke('upload-medical-document', {
+        body: {
+          base64,
+          fileName: file.name,
+          documentType,
+          userId,
+        },
+      })
 
-      if (error) throw error
+      if (funcError) throw funcError
 
       alert('Document uploaded successfully!')
       setFile(null)
@@ -60,7 +77,13 @@ export const MedicalDocumentUpload = ({ userId }: { userId: string }) => {
       loadDocuments()
     } catch (error) {
       console.error('Upload error:', error)
-      alert('Upload failed: ' + (error as Error).message)
+      // Provide clearer guidance for RLS failures
+      const msg = (error as any)?.message || String(error)
+      if (msg.toLowerCase().includes('row-level security') || msg.toLowerCase().includes('violates row-level')) {
+        alert('Upload failed due to database security policy (RLS). Ensure the medical_documents table and policies allow this user to insert. See app docs.')
+      } else {
+        alert('Upload failed: ' + msg)
+      }
     } finally {
       setUploading(false)
     }
@@ -70,7 +93,8 @@ export const MedicalDocumentUpload = ({ userId }: { userId: string }) => {
   const loadDocuments = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
+      // Cast to any - medical_documents table not in generated types yet
+      const { data, error } = await (supabase as any)
         .from('medical_documents')
         .select('*')
         .eq('user_id', userId)
@@ -99,8 +123,8 @@ export const MedicalDocumentUpload = ({ userId }: { userId: string }) => {
     if (!window.confirm('Are you sure you want to delete this document?')) return
 
     try {
-      // Get file path from database
-      const { data, error: fetchError } = await supabase
+      // Get file path from database (cast to any - table not in generated types)
+      const { data, error: fetchError } = await (supabase as any)
         .from('medical_documents')
         .select('file_path')
         .eq('id', document.id)
@@ -111,8 +135,8 @@ export const MedicalDocumentUpload = ({ userId }: { userId: string }) => {
       // Delete from storage
       await deleteFile('medical-documents', data.file_path)
 
-      // Delete from database
-      const { error: deleteError } = await supabase
+      // Delete from database (cast to any - table not in generated types)
+      const { error: deleteError } = await (supabase as any)
         .from('medical_documents')
         .delete()
         .eq('id', document.id)

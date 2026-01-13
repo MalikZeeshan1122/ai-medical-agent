@@ -21,7 +21,7 @@ Deno.serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const supabaseKey = Deno.env.get('SERVICE_ROLE_KEY')!;
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
@@ -214,20 +214,44 @@ Deno.serve(async (req) => {
       );
     }
 
-      // Insert new pages
+    // compute duration for logging/stats
+    const duration = (Date.now() - startTime) / 1000;
+
+    // Delete old pages for this hospital first
+    const { error: deleteError } = await supabase
+      .from('hospital_pages')
+      .delete()
+      .eq('hospital_id', hospitalId);
+    
+    if (deleteError) {
+      console.warn('Error deleting old pages (non-critical):', deleteError);
+    }
+
+    // Insert new pages
+    if (scrapedPages.length > 0) {
+      console.log(`Inserting ${scrapedPages.length} pages for hospital ${hospitalId}`);
+      const pagesToInsert = scrapedPages.map(page => ({
+        hospital_id: hospitalId,
+        url: page.url,
+        title: page.title,
+        content: page.content,
+        page_type: page.page_type,
+        metadata: page.metadata,
+        scraped_at: new Date().toISOString(),
+      }));
+      
+      console.log('Pages to insert:', JSON.stringify(pagesToInsert.map(p => ({ url: p.url, title: p.title }))));
+      
       const { error: insertError } = await supabase
         .from('hospital_pages')
-        .insert(
-          scrapedPages.map(page => ({
-            hospital_id: hospitalId,
-            ...page,
-          }))
-        );
+        .insert(pagesToInsert);
 
       if (insertError) {
         console.error('Error inserting pages:', insertError);
         throw insertError;
       }
+      
+      console.log('Pages inserted successfully');
 
       // Update hospital
       const { error: updateError } = await supabase

@@ -1,9 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '@/integrations/supabase/client'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Re-export supabase client for components that import from this file
+export { supabase }
 
 // Upload file to storage
 export const uploadFile = async (
@@ -91,3 +89,4 @@ export const listFiles = async (
     throw error
   }
 }
+

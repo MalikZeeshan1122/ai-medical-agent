@@ -10,6 +10,7 @@ import { Send, Loader2, Brain, Lock, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { APIToolsIndicator } from "@/components/APIToolsIndicator";
+import { MedicalDocumentUpload } from '@/components/MedicalDocumentUpload';
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ const PrivateAIChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [providers, setProviders] = useState<AIProvider[]>([]);
   const [selectedProviderId, setSelectedProviderId] = useState<string>("");
+  const [showUploadPanel, setShowUploadPanel] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -268,6 +270,15 @@ const PrivateAIChat = () => {
             </Select>
           </div>
         )}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowUploadPanel(prev => !prev)}
+          >
+            {showUploadPanel ? 'Close Documents' : 'Manage Documents'}
+          </Button>
+        </div>
       </div>
 
       <APIToolsIndicator />
@@ -277,6 +288,11 @@ const PrivateAIChat = () => {
           <CardTitle className="text-lg">Health Conversation</CardTitle>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col gap-4 min-h-0">
+          {showUploadPanel && user && (
+            <div className="mb-4">
+              <MedicalDocumentUpload userId={user.id} />
+            </div>
+          )}
           <ScrollArea ref={scrollRef} className="flex-1 pr-4">
             <div className="space-y-4">
               {messages.map((msg, idx) => (

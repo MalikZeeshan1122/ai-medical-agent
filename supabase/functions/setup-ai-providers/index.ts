@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
-    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const supabaseServiceRoleKey = Deno.env.get('SERVICE_ROLE_KEY') || ''
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: {

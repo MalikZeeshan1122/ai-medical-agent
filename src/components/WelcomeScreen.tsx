@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { useTheme } from "next-themes";
+import { playToggle, playClick } from "@/lib/sounds";
 
 export type QuickStartType = "symptom-check" | "medication-reminder" | "health-screening";
 
@@ -17,14 +18,43 @@ interface WelcomeScreenProps {
 }
 
 export const WelcomeScreen = ({ onStart, onQuickStart, language, onLanguageChange }: WelcomeScreenProps) => {
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [highContrast, setHighContrast] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('soundEnabled') !== 'false';
+    }
+    return true;
+  });
+  const [highContrast, setHighContrast] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('highContrast') === 'true';
+    }
+    return false;
+  });
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Apply high contrast mode
+  useEffect(() => {
+    if (mounted) {
+      localStorage.setItem('highContrast', String(highContrast));
+      if (highContrast) {
+        document.documentElement.classList.add('high-contrast');
+      } else {
+        document.documentElement.classList.remove('high-contrast');
+      }
+    }
+  }, [highContrast, mounted]);
+
+  // Save sound preference
+  useEffect(() => {
+    if (mounted) {
+      localStorage.setItem('soundEnabled', String(soundEnabled));
+    }
+  }, [soundEnabled, mounted]);
 
   const isDarkMode = mounted ? resolvedTheme === "dark" : false;
 
@@ -158,7 +188,10 @@ export const WelcomeScreen = ({ onStart, onQuickStart, language, onLanguageChang
                   <Switch
                     id="dark-mode"
                     checked={isDarkMode}
-                    onCheckedChange={(checked) => setTheme(checked ? "dark" : "light")}
+                    onCheckedChange={(checked) => {
+                      playToggle(checked);
+                      setTheme(checked ? "dark" : "light");
+                    }}
                   />
                 </div>
 
@@ -170,7 +203,13 @@ export const WelcomeScreen = ({ onStart, onQuickStart, language, onLanguageChang
                   <Switch
                     id="sound"
                     checked={soundEnabled}
-                    onCheckedChange={setSoundEnabled}
+                    onCheckedChange={(checked) => {
+                      setSoundEnabled(checked);
+                      // Play the toggle sound after enabling to confirm it works
+                      if (checked) {
+                        setTimeout(() => playToggle(true), 50);
+                      }
+                    }}
                   />
                 </div>
 
@@ -182,7 +221,10 @@ export const WelcomeScreen = ({ onStart, onQuickStart, language, onLanguageChang
                   <Switch
                     id="contrast"
                     checked={highContrast}
-                    onCheckedChange={setHighContrast}
+                    onCheckedChange={(checked) => {
+                      playToggle(checked);
+                      setHighContrast(checked);
+                    }}
                   />
                 </div>
               </div>

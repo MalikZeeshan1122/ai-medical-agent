@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send } from "lucide-react";
+import { playMessageSent } from "@/lib/sounds";
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -14,6 +15,7 @@ export const ChatInput = ({ onSend, disabled }: ChatInputProps) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (input.trim() && !disabled) {
+      playMessageSent();
       onSend(input.trim());
       setInput("");
     }

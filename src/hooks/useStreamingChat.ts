@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { playMessageReceived, playError } from "@/lib/sounds";
 // Note: This hook should not import router components
 
 interface Message {
@@ -40,6 +41,7 @@ export const useStreamingChat = (hospitalContext?: string, language: string = "e
           ...prev,
           { role: "assistant", content: data.response },
         ]);
+        playMessageReceived(); // Play sound when hospital assistant responds
       } else {
         // Use regular streaming chat for medical queries
         const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
@@ -144,6 +146,10 @@ export const useStreamingChat = (hospitalContext?: string, language: string = "e
             }
           }
         }
+        // Play sound when streaming message is complete
+        if (assistantContent) {
+          playMessageReceived();
+        }
       }
     } catch (error) {
       console.error("Chat error:", error);
@@ -176,6 +182,7 @@ export const useStreamingChat = (hospitalContext?: string, language: string = "e
           content: errorMessage,
         },
       ]);
+      playError(); // Play error sound
     } finally {
       setIsLoading(false);
     }
