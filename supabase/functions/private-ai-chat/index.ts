@@ -74,9 +74,10 @@ serve(async (req) => {
         // Fetch both upcoming and past appointments
         // Debug log for userId
         console.log('[DEBUG] Fetching profile for userId:', userId);
-        const [profileData, medicationsData, allergiesData, upcomingAppointmentsData, pastAppointmentsData, hospitalsData] = await Promise.all([
+        const [profileData, medicationsData, allergiesData, upcomingAppointmentsData, pastAppointmentsData, hospitalsData, symptomsData, chronicConditionsData] = await Promise.all([
           supabase.from('profiles').select('*').eq('id', userId).maybeSingle().then(r => r.error ? { data: null } : r),
-          supabase.from('medications').select('*').eq('user_id', userId).eq('is_current', true).then(r => r.error ? { data: [] } : r),
+          // Fetch ALL medications (both current and past)
+          supabase.from('medications').select('*').eq('user_id', userId).order('is_current', { ascending: false }).order('start_date', { ascending: false }).then(r => r.error ? { data: [] } : r),
           supabase.from('allergies').select('*').eq('user_id', userId).then(r => r.error ? { data: [] } : r),
           // Upcoming appointments (next 5)
           supabase.from('appointments').select('*').eq('user_id', userId)
@@ -89,6 +90,17 @@ serve(async (req) => {
           // Fetch all hospitals with their scraped pages (hospitals are shared, not per-user)
           supabase.from('hospitals').select('*, hospital_pages(*)').limit(10).then(r => {
             console.log('[DEBUG] Hospitals query result:', r.error ? r.error.message : `${r.data?.length || 0} hospitals`);
+            return r.error ? { data: [] } : r;
+          }),
+          // Fetch symptom tracker data (recent 10 symptoms)
+          supabase.from('symptoms').select('*').eq('user_id', userId)
+            .order('logged_at', { ascending: false }).limit(10).then(r => {
+            console.log('[DEBUG] Symptoms query result:', r.error ? r.error.message : `${r.data?.length || 0} symptoms`);
+            return r.error ? { data: [] } : r;
+          }),
+          // Fetch chronic conditions
+          supabase.from('chronic_conditions').select('*').eq('user_id', userId).then(r => {
+            console.log('[DEBUG] Chronic conditions query result:', r.error ? r.error.message : `${r.data?.length || 0} conditions`);
             return r.error ? { data: [] } : r;
           }),
         ]);
@@ -115,7 +127,9 @@ serve(async (req) => {
           medicationsData.data || [],
           allergiesData.data || [],
           upcomingAppointmentsData.data || [],
-          pastAppointmentsData.data || []
+          pastAppointmentsData.data || [],
+          symptomsData.data || [],
+          chronicConditionsData.data || []
         );
 
         // Build hospital context (summary for only user's scraped hospitals)
@@ -186,24 +200,40 @@ serve(async (req) => {
     function isHealthRelatedQuestion(message: string, conversationHistory: any[]): boolean {
       if (!message) return false;
       
-      // Allow short conversational responses if there's existing health conversation
-      const shortResponses = ['yes', 'no', 'ok', 'okay', 'sure', 'please', 'thanks', 'thank you', 'go ahead', 'continue', 'tell me', 'show me', 'help', 'what', 'why', 'how', 'when', 'where', 'which'];
       const lower = message.toLowerCase().trim();
       
+      // FIRST: Check if user is asking about their own data (highest priority)
+      // Pattern: "my" + health term OR "give/show/tell me" + health term
+      const personalDataPatterns = [
+        /\bmy\s+(medication|medications|medicine|medicines|health|medical|symptom|symptoms|allergy|allergies|appointment|appointments|condition|conditions|chronic|history|record|records|profile|document|documents|report|reports|prescription|prescriptions|test|tests|result|results|tracker|data|info|information|detail|details)\b/i,
+        /\b(give|show|tell|list|get|what|display)\s+(me\s+)?(my\s+)?(medication|medications|medicine|medicines|health|medical|symptom|symptoms|allergy|allergies|appointment|appointments|condition|conditions|history|record|records|profile|document|documents|report|reports|prescription|prescriptions|test|tests|result|results|detail|details|tracker|data|info|information)\b/i,
+        /\b(medication|medications|symptom|symptoms|allergy|allergies|appointment|appointments|condition|conditions)\s+(detail|details|list|history|info|information|data)\b/i,
+      ];
+      
+      if (personalDataPatterns.some(pattern => pattern.test(lower))) {
+        console.log('[ALLOWED PERSONAL DATA REQUEST]', message);
+        return true;
+      }
+      
+      // Allow short conversational responses if there's existing health conversation
+      const shortResponses = ['yes', 'no', 'ok', 'okay', 'sure', 'please', 'thanks', 'thank you', 'go ahead', 'continue', 'tell me', 'show me', 'help', 'what', 'why', 'how', 'when', 'where', 'which', 'more', 'next', 'previous', 'again'];
+      
       // If it's a short response and we have conversation history, allow it
-      if (lower.length < 30 && conversationHistory.length > 1) {
+      if (lower.length < 50 && conversationHistory.length > 1) {
         if (shortResponses.some(r => lower === r || lower.startsWith(r + ' ') || lower.endsWith(' ' + r))) {
           return true;
         }
       }
       
       const stopwords = [
-        'university', 'universities', 'college', 'colleges', 'school', 'schools', 'campus', 'campuses', 'faculty', 'department', 'student', 'students', 'academic', 'academics', 'education', 'educational', 'degree', 'degrees', 'diploma', 'certificate', 'technology', 'computer', 'software', 'hardware', 'engineering', 'business', 'law', 'economics', 'finance', 'bank', 'politics', 'geography', 'mathematics', 'math', 'physics', 'chemistry', 'astronomy', 'robot', 'robotics', 'machine learning', 'deep learning', 'data science', 'statistics', 'programming', 'coding', 'developer', 'website', 'internet', 'cloud', 'server', 'network', 'android', 'ios', 'apple', 'google', 'microsoft', 'amazon', 'facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'media', 'news', 'movie', 'film', 'music', 'song', 'artist', 'actor', 'actress', 'director', 'producer', 'sports', 'football', 'cricket', 'basketball', 'tennis', 'golf', 'olympics', 'travel', 'tourism', 'hotel', 'restaurant', 'recipe', 'fashion', 'clothes', 'shopping', 'car', 'bike', 'vehicle', 'transport', 'flight', 'train', 'bus', 'ticket', 'weather', 'climate', 'environment', 'energy', 'agriculture', 'farming', 'pet', 'dog', 'cat', 'bird', 'fish', 'game', 'gaming', 'playstation', 'xbox', 'nintendo', 'console', 'irrelevant', 'random', 'general knowledge', 'trivia', 'joke', 'funny', 'meme', 'conference', 'seminar', 'workshop', 'webinar', 'presentation', 'lecture', 'professor', 'teacher', 'principal', 'curriculum', 'syllabus', 'exam', 'examination', 'test score', 'grade', 'admission', 'enrollment', 'scholarship', 'grant', 'fellowship', 'internship', 'placement', 'alumni', 'library', 'hostel', 'mess', 'canteen', 'extracurricular', 'club', 'society', 'event', 'competition', 'award', 'ranking', 'rankings'
+        'university', 'universities', 'college', 'colleges', 'school', 'schools', 'campus', 'campuses', 'faculty', 'student', 'students', 'academic', 'academics', 'education', 'educational', 'degree', 'degrees', 'diploma', 'certificate', 'technology', 'computer', 'software', 'hardware', 'engineering', 'business', 'law', 'economics', 'finance', 'bank', 'politics', 'geography', 'mathematics', 'math', 'physics', 'chemistry', 'astronomy', 'robot', 'robotics', 'machine learning', 'deep learning', 'data science', 'statistics', 'programming', 'coding', 'developer', 'website', 'internet', 'cloud', 'server', 'network', 'android', 'ios', 'apple', 'google', 'microsoft', 'amazon', 'facebook', 'twitter', 'instagram', 'linkedin', 'youtube', 'media', 'news', 'movie', 'film', 'music', 'song', 'artist', 'actor', 'actress', 'director', 'producer', 'sports', 'football', 'cricket', 'basketball', 'tennis', 'golf', 'olympics', 'travel', 'tourism', 'hotel', 'restaurant', 'recipe', 'fashion', 'clothes', 'shopping', 'car', 'bike', 'vehicle', 'transport', 'flight', 'train', 'bus', 'ticket', 'weather', 'climate', 'environment', 'energy', 'agriculture', 'farming', 'pet', 'dog', 'cat', 'bird', 'fish', 'game', 'gaming', 'playstation', 'xbox', 'nintendo', 'console', 'irrelevant', 'random', 'general knowledge', 'trivia', 'joke', 'funny', 'meme', 'conference', 'seminar', 'workshop', 'webinar', 'presentation', 'lecture', 'professor', 'teacher', 'principal', 'curriculum', 'syllabus', 'exam', 'examination', 'test score', 'grade', 'admission', 'enrollment', 'scholarship', 'grant', 'fellowship', 'internship', 'placement', 'alumni', 'library', 'hostel', 'mess', 'canteen', 'extracurricular', 'club', 'society', 'event', 'competition', 'award', 'ranking', 'rankings'
       ];
       const healthKeywords = [
-        'health', 'medical', 'medicine', 'doctor', 'hospital', 'clinic', 'symptom', 'treatment', 'diagnosis', 'disease', 'illness', 'medication', 'allergy', 'appointment', 'vaccine', 'surgery', 'therapy', 'emergency', 'pharmacy', 'prescription', 'pain', 'injury', 'infection', 'test', 'scan', 'blood', 'pressure', 'sugar', 'diabetes', 'cancer', 'cardio', 'mental', 'wellness', 'nutrition', 'diet', 'exercise', 'fitness', 'weight', 'immunization', 'checkup', 'screening', 'specialist', 'consultation', 'lab', 'report', 'x-ray', 'mri', 'ct', 'ultrasound', 'pregnancy', 'child', 'pediatric', 'gynecology', 'obstetric', 'dermatology', 'skin', 'eye', 'vision', 'dentist', 'oral', 'mouth', 'ear', 'nose', 'throat', 'lung', 'asthma', 'heart', 'kidney', 'liver', 'stomach', 'bowel', 'colon', 'prostate', 'cough', 'fever', 'flu', 'covid', 'virus', 'bacteria', 'infection', 'injury', 'fracture', 'burn', 'wound', 'first aid', 'ambulance', 'blood bank', 'organ', 'transplant', 'donor', 'rehab', 'addiction', 'smoking', 'alcohol', 'counseling', 'psychology', 'psychiatry', 'anxiety', 'depression', 'stress', 'sleep', 'insomnia', 'fatigue', 'wellbeing', 'well-being', 'well being',
-        // Document-related keywords
-        'document', 'upload', 'file', 'result', 'results', 'my document', 'my file', 'my report', 'my test', 'uploaded', 'prescription', 'record', 'records', 'history', 'summary', 'analyze', 'read', 'show', 'what does', 'explain'
+        'health', 'medical', 'medicine', 'doctor', 'hospital', 'clinic', 'symptom', 'symptoms', 'treatment', 'diagnosis', 'disease', 'illness', 'medication', 'medications', 'allergy', 'allergies', 'appointment', 'appointments', 'vaccine', 'surgery', 'therapy', 'emergency', 'pharmacy', 'prescription', 'prescriptions', 'pain', 'injury', 'infection', 'test', 'scan', 'blood', 'pressure', 'sugar', 'diabetes', 'cancer', 'cardio', 'mental', 'wellness', 'nutrition', 'diet', 'exercise', 'fitness', 'weight', 'immunization', 'checkup', 'screening', 'specialist', 'consultation', 'lab', 'report', 'x-ray', 'mri', 'ct', 'ultrasound', 'pregnancy', 'child', 'pediatric', 'gynecology', 'obstetric', 'dermatology', 'skin', 'eye', 'vision', 'dentist', 'oral', 'mouth', 'ear', 'nose', 'throat', 'lung', 'asthma', 'heart', 'kidney', 'liver', 'stomach', 'bowel', 'colon', 'prostate', 'cough', 'fever', 'flu', 'covid', 'virus', 'bacteria', 'fracture', 'burn', 'wound', 'first aid', 'ambulance', 'blood bank', 'organ', 'transplant', 'donor', 'rehab', 'addiction', 'smoking', 'alcohol', 'counseling', 'psychology', 'psychiatry', 'anxiety', 'depression', 'stress', 'sleep', 'insomnia', 'fatigue', 'wellbeing', 'well-being', 'well being',
+        // Document and record related keywords
+        'document', 'documents', 'upload', 'file', 'result', 'results', 'uploaded', 'record', 'records', 'history', 'summary', 'analyze', 'read', 'explain',
+        // Data request keywords
+        'tracker', 'tracking', 'condition', 'conditions', 'chronic', 'family history', 'profile'
       ];
       
       // If any stopword is present, block the query and log it
@@ -298,7 +328,9 @@ function buildHealthContext(
   medications: any[],
   allergies: any[],
   upcomingAppointments: any[],
-  pastAppointments: any[]
+  pastAppointments: any[],
+  symptoms: any[] = [],
+  chronicConditions: any[] = []
 ): string {
   let context = "USER'S PRIVATE HEALTH INFORMATION:\n\n";
 
@@ -309,20 +341,62 @@ function buildHealthContext(
     if (profile.gender) context += `Gender: ${profile.gender}\n`;
   }
 
+  if (chronicConditions.length > 0) {
+    const activeConditions = chronicConditions.filter(c => c.is_active !== false);
+    const inactiveConditions = chronicConditions.filter(c => c.is_active === false);
+    
+    if (activeConditions.length > 0) {
+      context += `\nActive Chronic Conditions:\n${activeConditions.map(c => 
+        `- ${c.condition_name}${c.severity ? ` (${c.severity})` : ''}${c.diagnosed_date ? ` - diagnosed ${c.diagnosed_date}` : ''}${c.notes ? ` - ${c.notes}` : ''}`
+      ).join('\n')}\n`;
+    }
+    if (inactiveConditions.length > 0) {
+      context += `\nPast/Inactive Conditions:\n${inactiveConditions.map(c => 
+        `- ${c.condition_name}${c.notes ? ` - ${c.notes}` : ''}`
+      ).join('\n')}\n`;
+    }
+  }
+
   if (allergies.length > 0) {
-    context += `\nAllergies:\n${allergies.map(a => `- ${a.allergen} (${a.severity || 'unknown severity'})`).join('\n')}\n`;
+    context += `\nAllergies:\n${allergies.map(a => `- ${a.allergen} (${a.severity || 'unknown severity'})${a.reaction ? ` - reaction: ${a.reaction}` : ''}`).join('\n')}\n`;
   }
 
   if (medications.length > 0) {
-    context += `\nCurrent Medications:\n${medications.map(m => `- ${m.medication_name}: ${m.dosage}, ${m.frequency}`).join('\n')}\n`;
+    const currentMeds = medications.filter(m => m.is_current !== false);
+    const pastMeds = medications.filter(m => m.is_current === false);
+    
+    if (currentMeds.length > 0) {
+      context += `\nCurrent Medications:\n${currentMeds.map(m => 
+        `- ${m.medication_name}: ${m.dosage || 'dosage not specified'}, ${m.frequency || 'frequency not specified'}${m.purpose ? ` (for: ${m.purpose})` : ''}`
+      ).join('\n')}\n`;
+    }
+    if (pastMeds.length > 0) {
+      context += `\nPast Medications:\n${pastMeds.map(m => 
+        `- ${m.medication_name}${m.purpose ? ` (was for: ${m.purpose})` : ''}`
+      ).join('\n')}\n`;
+    }
+  } else {
+    context += `\nMedications: No medications recorded\n`;
+  }
+
+  if (symptoms.length > 0) {
+    context += `\nRecent Symptom Tracker Entries:\n${symptoms.map(s => {
+      let entry = `- ${s.logged_at ? new Date(s.logged_at).toLocaleDateString() : 'Unknown date'}: ${s.symptom_name || s.name || 'Unknown symptom'}`;
+      if (s.severity) entry += ` (severity: ${s.severity})`;
+      if (s.temperature) entry += ` - temp: ${s.temperature}°`;
+      if (s.notes) entry += ` - ${s.notes}`;
+      return entry;
+    }).join('\n')}\n`;
+  } else {
+    context += `\nSymptom Tracker: No symptoms recorded\n`;
   }
 
   if (upcomingAppointments.length > 0) {
-    context += `\nUpcoming Appointments:\n${upcomingAppointments.map(a => `- ${a.appointment_date} with ${a.doctor_name}`).join('\n')}\n`;
+    context += `\nUpcoming Appointments:\n${upcomingAppointments.map(a => `- ${a.appointment_date} with ${a.doctor_name}${a.reason ? ` (${a.reason})` : ''}`).join('\n')}\n`;
   }
 
   if (pastAppointments.length > 0) {
-    context += `\nRecent Past Appointments:\n${pastAppointments.map(a => `- ${a.appointment_date} with ${a.doctor_name}`).join('\n')}\n`;
+    context += `\nRecent Past Appointments:\n${pastAppointments.map(a => `- ${a.appointment_date} with ${a.doctor_name}${a.reason ? ` (${a.reason})` : ''}`).join('\n')}\n`;
   }
 
   return context;

@@ -377,7 +377,7 @@ const Appointments = () => {
   const getAppointmentTypeIcon = (type: string | null) => {
     switch (type) {
       case 'in_person':
-        return <MapPin className="w-4 h-4" />;
+         return <MapPin className="w-4 h-4" />;
       case 'telehealth':
         return <Video className="w-4 h-4" />;
       case 'phone':
@@ -387,12 +387,76 @@ const Appointments = () => {
     }
   };
 
+  // Helper function to safely compare appointment date/time with current time
+  const isUpcomingAppointment = (apt: Appointment): boolean => {
+    try {
+      const now = new Date();
+      // Get today's date at start of day for comparison
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      // Parse appointment date (format: YYYY-MM-DD)
+      const dateParts = apt.appointment_date.split('-');
+      const year = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10) - 1; // JavaScript months are 0-indexed
+      const day = parseInt(dateParts[2], 10);
+      const appointmentDate = new Date(year, month, day);
+      
+      // Debug logging
+      console.log('Checking appointment:', {
+        raw_date: apt.appointment_date,
+        raw_time: apt.appointment_time,
+        parsed_date: appointmentDate.toISOString(),
+        today: today.toISOString(),
+        now: now.toISOString(),
+        doctor: apt.doctor_name,
+        status: apt.status
+      });
+      
+      // If appointment date is in the future, it's upcoming
+      if (appointmentDate.getTime() > today.getTime()) {
+        console.log('=> UPCOMING (future date)');
+        return true;
+      }
+      
+      // If appointment date is today, check the time
+      if (appointmentDate.getTime() === today.getTime()) {
+        // Parse appointment time (format: HH:MM or HH:MM:SS)
+        const timeParts = apt.appointment_time.split(':');
+        const appointmentHour = parseInt(timeParts[0], 10) || 0;
+        const appointmentMinute = parseInt(timeParts[1], 10) || 0;
+        
+        console.log('Today appointment time check:', {
+          appointmentHour,
+          appointmentMinute,
+          currentHour: now.getHours(),
+          currentMinute: now.getMinutes()
+        });
+        
+        // Compare with current time
+        if (appointmentHour > now.getHours()) {
+          console.log('=> UPCOMING (later today by hour)');
+          return true;
+        }
+        if (appointmentHour === now.getHours() && appointmentMinute >= now.getMinutes()) {
+          console.log('=> UPCOMING (later today by minute)');
+          return true;
+        }
+      }
+      
+      console.log('=> PAST');
+      return false;
+    } catch (e) {
+      console.error('Error parsing appointment date/time:', apt, e);
+      return false;
+    }
+  };
+
   const upcomingAppointments = appointments.filter(
-    (apt) => new Date(`${apt.appointment_date}T${apt.appointment_time}`) >= new Date() && apt.status !== 'cancelled'
+    (apt) => isUpcomingAppointment(apt) && apt.status !== 'cancelled'
   );
 
   const pastAppointments = appointments.filter(
-    (apt) => new Date(`${apt.appointment_date}T${apt.appointment_time}`) < new Date() || apt.status === 'cancelled'
+    (apt) => !isUpcomingAppointment(apt) || apt.status === 'cancelled'
   );
 
   const appointmentsByDate = appointments.reduce((acc, apt) => {
