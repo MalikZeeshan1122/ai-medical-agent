@@ -11,9 +11,9 @@ describe('QuickResponseButtons', () => {
     const onSelect = vi.fn();
     render(<QuickResponseButtons options={mockOptions} onSelect={onSelect} />);
     
-    expect(screen.getByRole('button', { name: /yes/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /no/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /not sure/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Yes' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'No' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Not sure' })).toBeInTheDocument();
   });
 
   it('calls onSelect when button is clicked', async () => {
@@ -37,7 +37,7 @@ describe('QuickResponseButtons', () => {
     );
     
     mockOptions.forEach((option) => {
-      expect(screen.getByRole('button', { name: new RegExp(option, 'i') })).toBeDisabled();
+      expect(screen.getByRole('button', { name: option })).toBeDisabled();
     });
   });
 

@@ -7,7 +7,8 @@ describe('cn utility', () => {
   });
 
   it('handles conditional classes', () => {
-    expect(cn('foo', false && 'bar', 'baz')).toBe('foo baz');
+    const shouldInclude = false;
+    expect(cn('foo', shouldInclude ? 'bar' : undefined, 'baz')).toBe('foo baz');
   });
 
   it('handles tailwind class conflicts', () => {

@@ -210,7 +210,7 @@ const Appointments = () => {
 
   const createRecurringAppointments = async (baseAppointment: Appointment, pattern: string, endDate: Date) => {
     const appointments: any[] = [];
-    let currentDate = new Date(baseAppointment.appointment_date);
+    const currentDate = new Date(baseAppointment.appointment_date);
     const end = new Date(endDate);
 
     while (currentDate < end) {
