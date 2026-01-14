@@ -112,6 +112,21 @@ const Appointments = () => {
         .order('appointment_time', { ascending: true });
 
       if (error) throw error;
+      
+      // Debug: Log all loaded appointments
+      console.log('=== LOADED APPOINTMENTS ===');
+      console.log('Current date:', new Date().toISOString());
+      console.log('Total appointments:', data?.length || 0);
+      data?.forEach((apt, i) => {
+        console.log(`Appointment ${i + 1}:`, {
+          date: apt.appointment_date,
+          time: apt.appointment_time,
+          doctor: apt.doctor_name,
+          status: apt.status
+        });
+      });
+      console.log('=== END APPOINTMENTS ===');
+      
       setAppointments(data || []);
     } catch (error: any) {
       console.error('Error loading appointments:', error);
